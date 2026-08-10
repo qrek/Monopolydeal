@@ -1,6 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#16241b"/>
-  <rect x="6" y="7" width="12" height="18" rx="2.5" fill="#f2c33c"/>
-  <rect x="15" y="7" width="11" height="18" rx="2.5" fill="#f4f2e9" transform="rotate(9 15 7)"/>
-  <rect x="15" y="7" width="11" height="6" rx="2.5" fill="#2e9e5b" transform="rotate(9 15 7)"/>
+  <rect width="32" height="32" rx="6" fill="#ED1B24"/>
+  <rect x="5" y="8" width="13" height="18" rx="2" fill="#FBF7EC" stroke="#141414" stroke-width="1.4"/>
+  <rect x="5" y="8" width="13" height="5" fill="#1FB25A" stroke="#141414" stroke-width="1.4"/>
+  <g transform="rotate(11 22 8)">
+    <rect x="16" y="6" width="13" height="18" rx="2" fill="#FBF7EC" stroke="#141414" stroke-width="1.4"/>
+    <rect x="16" y="6" width="13" height="5" fill="#0072BB" stroke="#141414" stroke-width="1.4"/>
+  </g>
 </svg>

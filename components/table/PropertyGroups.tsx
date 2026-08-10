@@ -1,14 +1,18 @@
 /**
- * Lots de propriétés d'un joueur, avec l'état de complétion (2/3) et les
- * constructions. Un joueur peut détenir plusieurs lots d'une même couleur :
- * on rend donc les lots, jamais un compteur par couleur.
+ * Lots de propriétés d'un joueur, avec leur complétion (2/3) et leurs
+ * constructions. Un joueur peut détenir plusieurs lots d'une même couleur : on
+ * rend donc les lots, jamais un compteur par couleur.
  */
+
+'use client';
 
 import { CardFace } from '@/components/cards/CardFace';
 import {
   COLORS,
+  getCard,
   groupRent,
   isGroupComplete,
+  type CardId,
   type PropertyGroup,
 } from '@/lib/engine';
 import { readableInk } from '@/lib/ui/color';
@@ -16,57 +20,90 @@ import { readableInk } from '@/lib/ui/color';
 interface GroupProps {
   group: PropertyGroup;
   cardWidth: number;
+  /** Hauteur disponible : l'empilement se resserre pour y tenir. */
+  maxHeight?: number;
+  /** Déplacer un joker déjà posé : geste gratuit, réservé à mon tour. */
+  onMoveWild?: (cardId: CardId) => void;
 }
 
-export function GroupStack({ group, cardWidth }: GroupProps) {
+function isWild(id: CardId): boolean {
+  const k = getCard(id).kind;
+  return k === 'WILD' || k === 'WILD_ANY';
+}
+
+export function GroupStack({
+  group,
+  cardWidth,
+  maxHeight,
+  onMoveWild,
+}: GroupProps) {
   const cfg = COLORS[group.color];
   const complete = isGroupComplete(group);
   const rent = groupRent(group);
-  // Les cartes se chevauchent : seule la bande de couleur du dessous dépasse.
-  const step = Math.round(cardWidth * 0.34);
-  const height = Math.round(cardWidth * 1.4) + step * Math.max(0, group.cards.length - 1);
+  const cardHeight = Math.round(cardWidth * 1.4);
+  const gaps = Math.max(1, group.cards.length - 1);
+  // Les cartes se chevauchent : seul le bandeau du dessous dépasse. Un lot de
+  // Gares en compte 4 ; plutôt que de déborder de sa bande, l'empilement se
+  // resserre jusqu'au recouvrement minimum.
+  const step = Math.max(
+    4,
+    Math.min(
+      Math.round(cardWidth * 0.26),
+      maxHeight ? Math.floor((maxHeight - cardHeight) / gaps) : Infinity,
+    ),
+  );
+  const height = cardHeight + step * Math.max(0, group.cards.length - 1);
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="relative flex shrink-0 flex-col items-center gap-1">
       <div className="relative" style={{ width: cardWidth, height }}>
-        {group.cards.map((id, i) => (
-          <div key={id} className="absolute left-0" style={{ top: i * step, zIndex: i }}>
-            <CardFace cardId={id} width={cardWidth} />
-          </div>
-        ))}
+        {group.cards.map((id, i) => {
+          const movable = onMoveWild && isWild(id);
+          return (
+            <div
+              key={id}
+              className={`absolute left-0 transition-transform duration-200 ${
+                movable ? 'cursor-pointer hover:-translate-y-1' : ''
+              }`}
+              style={{ top: i * step, zIndex: i }}
+              onClick={movable ? () => onMoveWild(id) : undefined}
+              title={movable ? 'Déplacer ce joker (gratuit)' : undefined}
+            >
+              <CardFace cardId={id} width={cardWidth} />
+            </div>
+          );
+        })}
       </div>
 
-      <div className="flex items-center gap-1">
+      <div
+        // La pastille passe SUR l'empilement : posée dessous, elle coûtait
+        // 16 px par rangée, qu'un téléphone en paysage n'a pas.
+        // z-10 car les cartes portent un z-index croissant et passeraient
+        // sinon par-dessus.
+        className="pointer-events-none absolute bottom-0.5 z-10 flex items-center gap-0.5"
+      >
         <span
-          className={`rounded-full px-1.5 py-0.5 text-[0.65rem] font-extrabold tabular-nums leading-none ${
-            complete ? '' : 'bg-white/10 text-muted'
+          className={`rounded-[0.2rem] border border-ink/70 px-1 py-px text-[0.6rem] font-extrabold leading-none tabular-nums ${
+            complete ? '' : 'bg-cream text-ink-soft'
           }`}
           style={
-            complete
-              ? { background: cfg.hex, color: readableInk(cfg.hex) }
-              : undefined
+            complete ? { background: cfg.hex, color: readableInk(cfg.hex) } : undefined
           }
           title={
             complete
-              ? `Lot complet — loyer ${rent}M`
-              : `${group.cards.length} sur ${cfg.size} — loyer ${rent}M`
+              ? `Lot complet — loyer ${rent} M`
+              : `${group.cards.length} sur ${cfg.size} — loyer ${rent} M`
           }
         >
           {group.cards.length}/{cfg.size}
         </span>
         {group.house && (
-          <span
-            className="text-[0.65rem] leading-none text-gold"
-            title="Maison : +3M de loyer"
-          >
+          <span className="text-[0.7rem] leading-none text-[#1FB25A]" title="Maison : +3 M">
             ⌂
           </span>
         )}
         {group.hotel && (
-          <span
-            className="text-[0.65rem] font-extrabold leading-none text-gold"
-            title="Hôtel : +4M de loyer"
-          >
+          <span className="text-[0.7rem] leading-none text-mono-red" title="Hôtel : +4 M">
             ⌂⌂
           </span>
         )}
@@ -78,19 +115,29 @@ export function GroupStack({ group, cardWidth }: GroupProps) {
 export function PropertyGroups({
   groups,
   cardWidth,
+  maxHeight,
+  onMoveWild,
   empty = 'Aucune propriété',
 }: {
   groups: PropertyGroup[];
   cardWidth: number;
+  maxHeight?: number;
+  onMoveWild?: (cardId: CardId) => void;
   empty?: string;
 }) {
   if (groups.length === 0) {
-    return <p className="py-2 text-xs text-muted">{empty}</p>;
+    return <p className="py-1 text-[0.7rem] text-ink-soft">{empty}</p>;
   }
   return (
-    <div className="flex flex-wrap items-start gap-2">
+    <div className="no-scrollbar flex items-start gap-1.5 overflow-x-auto">
       {groups.map((g) => (
-        <GroupStack key={g.id} group={g} cardWidth={cardWidth} />
+        <GroupStack
+          key={g.id}
+          group={g}
+          cardWidth={cardWidth}
+          maxHeight={maxHeight}
+          onMoveWild={onMoveWild}
+        />
       ))}
     </div>
   );

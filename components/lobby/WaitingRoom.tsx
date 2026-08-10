@@ -53,11 +53,11 @@ export function WaitingRoom({ view }: { view: GameView }) {
       <header className="animate-fade-up flex flex-col items-center gap-4 text-center">
         <Link
           href="/"
-          className="self-start text-xs font-bold uppercase tracking-widest text-muted transition-colors hover:text-ink"
+          className="self-start text-xs font-bold uppercase tracking-widest text-ink-soft transition-colors hover:text-ink"
         >
           ← Quitter
         </Link>
-        <p className="text-xs font-bold uppercase tracking-widest text-muted">
+        <p className="text-xs font-bold uppercase tracking-widest text-ink-soft">
           Code de la partie
         </p>
         <CodeTiles code={game.code} />
@@ -67,7 +67,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
       </header>
 
       <section className="panel animate-fade-up flex-1 p-5">
-        <h2 className="mb-4 flex items-baseline justify-between text-sm font-bold uppercase tracking-widest text-muted">
+        <h2 className="mb-4 flex items-baseline justify-between text-sm font-bold uppercase tracking-widest text-ink-soft">
           Joueurs
           <span className="tabular-nums text-ink">
             {players.length}/{MAX_PLAYERS}
@@ -78,22 +78,22 @@ export function WaitingRoom({ view }: { view: GameView }) {
           {players.map((p) => (
             <li
               key={p.user_id}
-              className="flex items-center gap-3 rounded-card bg-black/20 px-3 py-2.5"
+              className="flex items-center gap-3 rounded-card bg-paper px-3 py-2.5"
             >
               <Avatar name={p.name} seed={p.user_id} offline={!p.connected} />
               <span className="min-w-0 flex-1 truncate text-base font-bold tracking-tight">
                 {p.name}
                 {p.user_id === viewerId && (
-                  <span className="ml-2 text-xs font-bold text-muted">toi</span>
+                  <span className="ml-2 text-xs font-bold text-ink-soft">toi</span>
                 )}
               </span>
               {p.user_id === game.host_id && (
-                <span className="rounded-full bg-gold/15 px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-widest text-gold">
+                <span className="rounded-full bg-mono-red/15 px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-widest text-mono-red">
                   Hôte
                 </span>
               )}
               {!p.connected && (
-                <span className="text-[0.65rem] font-bold uppercase tracking-widest text-muted">
+                <span className="text-[0.65rem] font-bold uppercase tracking-widest text-ink-soft">
                   absent
                 </span>
               )}
@@ -104,17 +104,17 @@ export function WaitingRoom({ view }: { view: GameView }) {
           {Array.from({ length: MAX_PLAYERS - players.length }, (_, i) => (
             <li
               key={`empty-${i}`}
-              className="flex items-center gap-3 rounded-card border border-dashed border-white/10 px-3 py-2.5"
+              className="flex items-center gap-3 rounded-card border border-dashed border-ink/25 px-3 py-2.5"
             >
-              <span aria-hidden className="size-11 rounded-full bg-white/5" />
-              <span className="text-sm text-muted">Siège libre</span>
+              <span aria-hidden className="size-11 rounded-full bg-ink/10" />
+              <span className="text-sm text-ink-soft">Siège libre</span>
             </li>
           ))}
         </ul>
       </section>
 
       <footer className="animate-fade-up space-y-3">
-        <p className="text-center text-sm text-muted">{seatHint(players.length)}</p>
+        <p className="text-center text-sm text-ink-soft">{seatHint(players.length)}</p>
         {isHost ? (
           <Button onClick={() => void start()} disabled={!canStart} loading={starting}>
             Lancer la partie
@@ -125,7 +125,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
           </p>
         )}
         {error && (
-          <p role="alert" className="text-center text-sm text-danger">
+          <p role="alert" className="text-center text-sm text-mono-red">
             {error}
           </p>
         )}

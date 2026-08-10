@@ -1,9 +1,15 @@
-# Lotissime
+# Monopoly Deal
 
-Jeu de cartes multijoueur temps réel, 2–5 joueurs, jouable dans le navigateur.
-Collection de lots immobiliers : on se vole des propriétés, on se réclame des loyers.
+Monopoly Deal multijoueur temps réel, 2 à 5 joueurs, jouable dans le navigateur.
+On collectionne trois lots complets, on se vole des propriétés, on se réclame des loyers.
 
-Projet personnel. Design et nommage originaux, cartes générées en CSS/SVG, aucune image externe.
+Projet personnel, **non affilié à Hasbro**. *Monopoly* et *Monopoly Deal* sont des
+marques déposées de Hasbro ; ce dépôt reprend le nom et l'identité visuelle du jeu
+pour un usage privé. Toutes les cartes sont générées en CSS/SVG — aucune image,
+aucun visuel du jeu original n'est copié.
+
+**Le jeu se joue en paysage.** Sur un téléphone tenu debout, l'écran invite à
+tourner l'appareil.
 
 ## Stack
 
@@ -34,10 +40,11 @@ lib/server/            couche service (service-role, serveur uniquement)
   games.ts             création/lobby, application des intentions, verrou optimiste
 lib/supabase/          clients Supabase (admin / SSR / navigateur)
 lib/client/            api REST typée, abonnement Realtime, store Zustand
-lib/ui/                helpers de présentation (avatar généré)
+lib/ui/                présentation : avatar, palette, textes de carte,
+                       bandes du plateau, jouabilité côté client
 app/api/               Route Handlers (créer, rejoindre, vue, actions)
 app/                   accueil et /g/[code]
-components/            primitives d'UI et écrans de lobby
+components/            marque, cartes, écrans de lobby, table et interactions
 supabase/migrations/   schéma SQL versionné
 ```
 
@@ -78,45 +85,89 @@ supabase/migrations/   schéma SQL versionné
   à `false` via `sendBeacon` au départ — de quoi distinguer « absent » de « en
   train de recharger ». Purement cosmétique : rien n'en dépend côté règles.
 
-## Table de jeu (étape 4)
+## Table de jeu (étapes 4 à 6)
 
-Statique pour l'instant : tout est en lecture seule, les interactions arrivent
-à l'étape 5.
+Le jeu se joue **en paysage** : la ressource rare n'est plus la largeur mais la
+hauteur, qui doit loger d'un seul tenant les adversaires, mon plateau et ma main.
+Les hauteurs de bande sont donc calculées (`lib/ui/layout.ts`) et non laissées au
+flux — sinon la main et les adversaires se partagent tout et le plateau du joueur
+s'écrase à zéro sur un téléphone couché.
 
-- **Disposition** : le joueur en bas, les adversaires au-dessus dans l'ordre du
-  tour (le premier est celui qui joue après nous). Sur mobile ils tiennent en
-  deux colonnes — à 4 adversaires, tout le monde reste visible sans défilement.
+- **Disposition** : adversaires en haut, tapis (pioche et défausse) au milieu,
+  mon plateau puis ma main en bas, journal sur le côté à partir de `xl`.
 - **Adversaire** : cartes en main comptées (la vue serveur ne contient jamais
-  leur contenu), total de banque avec le détail carte par carte au survol, lots
-  avec leur complétion (`2/3`) et leurs constructions.
-- **Progression** : les lots complets sont figurés par des jetons plutôt qu'un
-  `1/3` — un compteur numérique voisinait avec les `2/3` de complétion des lots
-  et disait autre chose au même endroit.
-- **Compteur d'actions** : trois pastilles qui s'éteignent, à hauteur du pouce.
-- **Main en éventail** : le pas et l'inclinaison sont calculés d'après la
-  largeur réelle (`ResizeObserver`), débordement d'inclinaison compris, pour que
-  l'éventail tienne à 375 px sans rogner une carte.
-- **Journal** : colonne fixe à partir de `lg`, feuille glissante sur mobile.
-
-### Cartes
-
-`components/cards/CardFace.tsx` rend les six familles (argent, propriété, joker
-bicolore, joker universel, action, loyer) à partir d'une seule mesure, `width` :
-la hauteur suit le ratio 5:7 et la police est proportionnelle, si bien que les
-mêmes composants servent à la main (96 px), aux lots (54 px) et aux lots
-adverses (36 px). Le niveau de détail se dégrade avec la taille — en dessous de
-80 px le nom de la couleur et la pastille de valeur disparaissent, car dans un
-lot les cartes se chevauchent et la même mention répétée trois fois n'est que du
-bruit. Les pictogrammes des 10 actions sont des SVG inline (`ActionGlyph`).
+  leur contenu), banque avec le détail au survol, lots et leur complétion.
+- **Progression** : une maison verte par lot complet, plutôt qu'un « 1/3 » qui
+  voisinait avec les « 2/3 » de complétion des lots en disant autre chose.
+- **Compteur d'actions** : trois pastilles qui s'éteignent.
+- **Éventail** : pas et inclinaison calculés d'après la largeur réelle
+  (`ResizeObserver`), débordement d'inclinaison compris.
 
 ### Direction artistique
 
-Aplats francs, coins arrondis, une seule typo (Outfit) du 400 au 800 — la
-hiérarchie vient de la graisse et du crénage. Aucune image externe : avatars,
-pastilles et cartes sont du CSS/SVG. Mobile-first, cibles tactiles de 48 px,
-mise en page vérifiée à 375 px. Les 10 couleurs de propriétés ont une source
-unique, `COLORS[color].hex` dans `lib/engine/cards.ts`, appliquée en style
-inline par les composants.
+Celle du plateau Monopoly : vert pâle en fond, rouge de la boîte en accent,
+faces crème cernées d'un filet noir, aplats francs et aucun dégradé décoratif.
+Les 10 couleurs de propriétés sont celles du plateau (`COLORS.hex` dans
+`lib/engine/cards.ts`, source unique appliquée en style inline). Typo Outfit,
+du 400 au 800 : la hiérarchie vient de la graisse et du crénage.
+
+### Cartes
+
+`components/cards/CardFace.tsx` rend les six familles à partir d'une seule
+mesure, `width` : la hauteur suit le ratio 5:7 et la police est proportionnelle,
+si bien que les mêmes composants servent à la main, aux lots et aux lots
+adverses. Le niveau de détail se dégrade avec la taille.
+
+- **Propriété** : le NOM DE LA RUE dans le bandeau de couleur — écrire « bleu »
+  sur du bleu n'apprend rien — puis la grille des loyers, la ligne du lot complet
+  en inversé, et les bonus de construction.
+- **Joker bicolore** : une moitié par couleur, chacune avec SA grille de loyers
+  sous son bandeau, sinon on ne sait pas quelle colonne va avec quelle couleur.
+- **Joker universel** : les 10 couleurs en damier.
+- **Action** : bandeau rouge, pictogramme SVG, et **le texte de la règle imprimé
+  sur la carte** (`ACTION_RULES` dans `lib/ui/cards.ts`) — on ne devrait jamais
+  avoir à deviner ce que fait une carte.
+- **Loyer** : les couleurs concernées en pavés, et la règle en toutes lettres.
+- **Argent** : une teinte par coupure, guilloché CSS.
+
+## Interactions (étape 5)
+
+Deux gestes mènent au même endroit : **traîner** une carte sur une zone, ou la
+**taper puis taper la zone**. Le second est le seul praticable au pouce, le
+premier le plus naturel à la souris ; le glisser n'est jamais obligatoire.
+
+- Trois zones : **Banque**, **Mes propriétés**, **Jouer l'action**. Seules
+  s'allument celles que la carte accepte (`lib/ui/legal.ts`).
+- **Questions avant envoi** (`components/play/Prompts.tsx`) : couleur et lot d'un
+  joker, lot à construire, adversaire et carte visés, couleur et cible d'un
+  loyer avec les Double loyer et leur coût en actions.
+- **Paiement** : sélection multi-cartes, total courant face au total dû, bouton
+  inactif tant que la dette n'est pas couverte — ou actif si l'on donne
+  littéralement tout. Payer plus que dû reste permis, on ne rend pas la monnaie.
+- **Fenêtre de Refus** : 8 s avec barre de compte à rebours. Le compte affiché
+  n'est qu'indicatif : il part de `updated_at` renvoyé par le serveur, et c'est
+  le serveur qui tranche. À expiration la source réclame le dénouement, les
+  autres clients prenant le relais 3 s plus tard si elle a fermé son onglet.
+- **Défausse** : au-delà de 7 cartes, modale non refermable, ni plus ni moins que
+  le nombre requis.
+- La pioche de début de tour est automatique : elle n'est jamais un choix.
+- Déplacer un joker déjà posé se fait en le tapant dans son lot (geste gratuit).
+
+Rien n'est appliqué localement. Les lectures de `lib/ui/legal.ts` ne servent qu'à
+guider la main ; toute intention repart au serveur, qui peut la refuser — et son
+message de règle est affiché tel quel.
+
+## Animations (étape 6)
+
+Sobres, 200–300 ms, et neutralisées par `prefers-reduced-motion`.
+
+- **Vol de carte** : la carte joue de la main vers la zone visée (280 ms). Le vol
+  part au geste, pas après l'aller-retour réseau — si le coup est refusé, la
+  carte est encore en main au rafraîchissement suivant.
+- **Retournement** : une carte piochée arrive en pivotant.
+- **Secousse** : quand on se fait voler ou qu'on paie, mon plateau tremble
+  (320 ms). Le journal dit ce qui s'est passé, la secousse dit que c'est à moi.
+- Modales et cartes de la main animées à l'entrée comme à la sortie.
 
 ### Mise en route Supabase
 

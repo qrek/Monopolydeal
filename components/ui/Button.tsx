@@ -10,10 +10,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-gold text-table hover:bg-gold/90 active:bg-gold/80',
+  primary:
+    'border-2 border-ink bg-mono-red text-cream hover:bg-mono-red-dark active:bg-mono-red-dark',
   secondary:
-    'bg-felt-light text-ink border border-white/10 hover:bg-felt-ring active:bg-felt-ring',
-  ghost: 'text-muted hover:text-ink',
+    'border-2 border-ink bg-cream text-ink hover:bg-board-dark active:bg-board-dark',
+  ghost: 'border-2 border-transparent text-ink-soft hover:text-ink',
 };
 
 export function Button({
@@ -29,12 +30,13 @@ export function Button({
     <button
       // 48px de haut : cible tactile confortable au pouce.
       className={[
-        'inline-flex min-h-12 items-center justify-center gap-2 rounded-card px-5',
-        'text-base font-bold tracking-tight transition-all duration-200',
+        'inline-flex min-h-12 items-center justify-center gap-2 rounded-card px-4',
+        'text-base font-extrabold tracking-tight transition-all duration-200',
+        'shadow-card disabled:cursor-not-allowed disabled:shadow-none',
         // Un bouton inactif devient un aplat inerte : jamais un aplat de marque
         // simplement assombri, qu'on prendrait pour un bouton cliquable.
-        'disabled:cursor-not-allowed disabled:bg-white/[0.04] disabled:text-muted',
-        'active:scale-[0.98] disabled:active:scale-100',
+        'disabled:border-ink/25 disabled:bg-board-dark/60 disabled:text-ink-soft',
+        'active:translate-y-px disabled:active:translate-y-0',
         block ? 'w-full' : '',
         VARIANTS[variant],
         className,

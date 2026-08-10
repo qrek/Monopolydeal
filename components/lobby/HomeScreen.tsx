@@ -5,6 +5,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { Wordmark } from '@/components/brand/Wordmark';
 import { Button } from '@/components/ui/Button';
 import { NameField } from '@/components/ui/NameField';
 import { api, RequestError } from '@/lib/client/api';
@@ -55,18 +56,16 @@ export function HomeScreen() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-5 py-10">
-      <header className="animate-fade-up text-center">
-        <h1 className="text-5xl font-extrabold tracking-tighter">
-          Lot<span className="text-gold">issime</span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-xs text-balance text-sm leading-relaxed text-muted">
+      <header className="animate-fade-up flex flex-col items-center gap-3 text-center">
+        <Wordmark size={44} />
+        <p className="mx-auto max-w-xs text-balance text-sm leading-relaxed text-ink-soft">
           Trois lots complets et la partie est à toi. Vole, réclame, encaisse.
           De 2 à 5 joueurs.
         </p>
       </header>
 
       {!configured && (
-        <p className="rounded-card border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-ink">
+        <p className="rounded-card border border-mono-red bg-mono-red/10 px-4 py-3 text-sm text-ink">
           Supabase n’est pas configuré : renseigne <code>.env.local</code>{' '}
           d’après <code>.env.example</code>.
         </p>
@@ -84,10 +83,10 @@ export function HomeScreen() {
           Créer une partie
         </Button>
 
-        <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-muted">
-          <span className="h-px flex-1 bg-white/10" />
+        <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-widest text-ink-soft">
+          <span className="h-px flex-1 bg-ink/20" />
           ou
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-ink/20" />
         </div>
 
         <form
@@ -98,7 +97,7 @@ export function HomeScreen() {
           className="space-y-4"
         >
           <label className="block">
-            <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted">
+            <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-soft">
               Rejoindre avec un code
             </span>
             <input
@@ -127,7 +126,7 @@ export function HomeScreen() {
       </section>
 
       {error && (
-        <p role="alert" className="text-center text-sm text-danger">
+        <p role="alert" className="text-center text-sm font-bold text-mono-red">
           {error}
         </p>
       )}

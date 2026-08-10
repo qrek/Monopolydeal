@@ -15,16 +15,16 @@ const display = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: 'Lotissime',
+  title: 'Monopoly Deal',
   description:
-    'Jeu de cartes multijoueur : collectionne des lots, vole des propriétés, réclame des loyers.',
+    'Monopoly Deal en ligne, 2 à 5 joueurs : collectionne trois lots complets, vole des propriétés, réclame tes loyers.',
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#0e1512',
+  themeColor: '#ED1B24',
   viewportFit: 'cover',
 };
 

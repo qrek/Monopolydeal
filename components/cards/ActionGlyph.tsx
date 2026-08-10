@@ -96,12 +96,14 @@ const GLYPHS: Record<ActionKind, React.ReactNode> = {
 export function ActionGlyph({
   kind,
   className = '',
+  style,
 }: {
   kind: ActionKind;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden className={className}>
+    <svg viewBox="0 0 24 24" aria-hidden className={className} style={style}>
       {GLYPHS[kind]}
     </svg>
   );

@@ -15,7 +15,7 @@ interface NameFieldProps {
 export function NameField({ value, onChange, seed, autoFocus }: NameFieldProps) {
   return (
     <label className="block">
-      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-muted">
+      <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-soft">
         Ton pseudo
       </span>
       <div className="flex items-center gap-3">

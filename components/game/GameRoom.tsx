@@ -51,7 +51,7 @@ export function GameRoom({ code }: { code: string }) {
     return (
       <Centered>
         <p className="text-lg font-bold">Supabase n’est pas configuré.</p>
-        <p className="text-sm text-muted">
+        <p className="text-sm text-ink-soft">
           Renseigne <code>.env.local</code> d’après <code>.env.example</code>.
         </p>
       </Centered>
@@ -68,7 +68,7 @@ export function GameRoom({ code }: { code: string }) {
           <Button onClick={() => void attach(code)} variant="secondary">
             Réessayer
           </Button>
-          <Link href="/" className="block text-sm text-muted hover:text-ink">
+          <Link href="/" className="block text-sm text-ink-soft hover:text-ink">
             Retour à l’accueil
           </Link>
         </div>
@@ -83,9 +83,9 @@ export function GameRoom({ code }: { code: string }) {
       <Centered>
         <span
           aria-hidden
-          className="size-8 animate-spin rounded-full border-2 border-white/20 border-t-gold"
+          className="size-8 animate-spin rounded-full border-2 border-ink/20 border-t-mono-red"
         />
-        <p className="text-sm text-muted">Connexion à la partie…</p>
+        <p className="text-sm text-ink-soft">Connexion à la partie…</p>
       </Centered>
     );
   }

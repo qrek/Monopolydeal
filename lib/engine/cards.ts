@@ -32,17 +32,22 @@ export interface ColorConfig {
   buildable: boolean;
 }
 
+/**
+ * Les aplats sont ceux du plateau Monopoly, pas une palette maison : c'est à
+ * la couleur qu'on reconnaît un lot d'un coup d'œil, et un joueur qui connaît
+ * le jeu de plateau doit retrouver ses repères sans réapprendre.
+ */
 export const COLORS: Record<Color, ColorConfig> = {
-  brown: { size: 2, rents: [1, 2], value: 1, label: 'Marron', hex: '#7B4B2A', buildable: true },
-  lightblue: { size: 3, rents: [1, 2, 3], value: 1, label: 'Bleu ciel', hex: '#6EC6E8', buildable: true },
-  pink: { size: 3, rents: [1, 2, 4], value: 2, label: 'Rose', hex: '#E86FA9', buildable: true },
-  orange: { size: 3, rents: [1, 3, 5], value: 2, label: 'Orange', hex: '#F08A2B', buildable: true },
-  red: { size: 3, rents: [2, 3, 6], value: 3, label: 'Rouge', hex: '#DC3B34', buildable: true },
-  yellow: { size: 3, rents: [2, 4, 6], value: 3, label: 'Jaune', hex: '#F2C33C', buildable: true },
-  green: { size: 3, rents: [2, 4, 7], value: 4, label: 'Vert', hex: '#2E9E5B', buildable: true },
-  darkblue: { size: 2, rents: [3, 8], value: 4, label: 'Bleu nuit', hex: '#2B4A8B', buildable: true },
-  black: { size: 4, rents: [1, 2, 3, 4], value: 2, label: 'Transports', hex: '#2B2B2B', buildable: false },
-  turquoise: { size: 2, rents: [1, 2], value: 2, label: 'Services', hex: '#3FB8AF', buildable: false },
+  brown: { size: 2, rents: [1, 2], value: 1, label: 'Marron', hex: '#955436', buildable: true },
+  lightblue: { size: 3, rents: [1, 2, 3], value: 1, label: 'Bleu ciel', hex: '#AAE0FA', buildable: true },
+  pink: { size: 3, rents: [1, 2, 4], value: 2, label: 'Rose', hex: '#D93A96', buildable: true },
+  orange: { size: 3, rents: [1, 3, 5], value: 2, label: 'Orange', hex: '#F7941D', buildable: true },
+  red: { size: 3, rents: [2, 3, 6], value: 3, label: 'Rouge', hex: '#ED1B24', buildable: true },
+  yellow: { size: 3, rents: [2, 4, 6], value: 3, label: 'Jaune', hex: '#FEF200', buildable: true },
+  green: { size: 3, rents: [2, 4, 7], value: 4, label: 'Vert', hex: '#1FB25A', buildable: true },
+  darkblue: { size: 2, rents: [3, 8], value: 4, label: 'Bleu nuit', hex: '#0072BB', buildable: true },
+  black: { size: 4, rents: [1, 2, 3, 4], value: 2, label: 'Gares', hex: '#1A1A1A', buildable: false },
+  turquoise: { size: 2, rents: [1, 2], value: 2, label: 'Compagnies', hex: '#8FD4A8', buildable: false },
 };
 
 export const ALL_COLORS: Color[] = Object.keys(COLORS) as Color[];

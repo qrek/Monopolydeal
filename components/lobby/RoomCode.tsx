@@ -17,7 +17,7 @@ export function CodeTiles({ code, size = 'lg' }: { code: string; size?: 'lg' | '
         <span
           key={`${letter}-${i}`}
           aria-hidden
-          className={`grid place-items-center rounded-card border border-white/10 bg-black/30 font-extrabold tracking-tight text-gold ${box}`}
+          className={`grid place-items-center rounded-card border border-ink/25 bg-paper font-extrabold tracking-tight text-mono-red ${box}`}
         >
           {letter}
         </span>

@@ -3,23 +3,24 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 @layer base {
   body {
-    @apply bg-table text-ink antialiased;
-    /* Le feutre : une trame très discrète, en CSS pur, aucune image. */
+    @apply bg-board text-ink antialiased;
+    min-height: 100dvh;
+    /* Le tapis : le vert du plateau, à peine modulé. Aucune image. */
     background-image: radial-gradient(
-      120% 90% at 50% 0%,
-      #1a2b21 0%,
-      #0e1512 62%
+      120% 100% at 50% 0%,
+      #d6ebd6 0%,
+      #b7d8b8 100%
     );
     background-attachment: fixed;
-    min-height: 100dvh;
+    /* Jeu en paysage : on ne veut ni rebond ni scroll horizontal parasite. */
+    overscroll-behavior: none;
   }
 
-  /* Mobile-first : pas de zoom involontaire, pas de rebond de scroll sur la table. */
   input,
   button,
   textarea {
@@ -27,24 +28,45 @@
   }
 
   ::selection {
-    @apply bg-gold text-table;
+    @apply bg-mono-red text-cream;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-gold ring-offset-2 ring-offset-table;
+    @apply outline-none ring-2 ring-ink ring-offset-2 ring-offset-board;
   }
 }
 
 @layer components {
-  /* Panneau : la brique visuelle de base — aplat, bord clair, coins ronds. */
+  /* Panneau : crème cerné de noir, comme une case du plateau. */
   .panel {
-    @apply rounded-panel border border-white/10 bg-felt/80 shadow-panel backdrop-blur-sm;
+    @apply rounded-panel border-2 border-ink/85 bg-cream shadow-card;
+  }
+
+  .panel-soft {
+    @apply rounded-panel border border-ink/20 bg-cream/70;
   }
 
   .field {
-    @apply w-full rounded-card border border-white/10 bg-black/25 px-4 py-3
-           text-ink placeholder:text-muted/60 transition-colors
-           focus:border-gold/60;
+    @apply w-full rounded-card border-2 border-ink/80 bg-paper px-4 py-3
+           text-ink placeholder:text-ink-soft/60 transition-colors
+           focus:border-mono-red;
+  }
+
+  /* Bandeau de marque : le rouge de la boîte, filet noir, texte crème. */
+  .brand-bar {
+    @apply border-2 border-ink bg-mono-red text-cream;
+  }
+
+  /* Étiquette de section, façon libellé de plateau. */
+  .board-label {
+    @apply text-[0.6rem] font-extrabold uppercase tracking-[0.18em] text-ink-soft;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

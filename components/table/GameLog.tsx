@@ -1,6 +1,6 @@
 /**
- * Journal de partie, alimenté par `state.events` — le log append-only du moteur.
- * Latéral sur grand écran, tiroir sur mobile.
+ * Journal de partie, alimenté par `state.events` — le log append-only du
+ * moteur. Colonne latérale sur grand écran, tiroir ailleurs.
  */
 
 'use client';
@@ -11,9 +11,9 @@ import type { GameEvent } from '@/lib/engine';
 import { describeEvent, type LogTone } from '@/lib/ui/log';
 
 const TONE: Record<LogTone, string> = {
-  neutral: 'text-muted',
-  gain: 'text-[#7fd1a0]',
-  loss: 'text-[#f0a08a]',
+  neutral: 'text-ink-soft',
+  gain: 'text-[#0F7A3D]',
+  loss: 'text-mono-red',
   strong: 'text-ink font-bold',
 };
 
@@ -33,7 +33,7 @@ export function GameLog({
 
   return (
     <div>
-      <ol className="space-y-1.5 text-xs leading-snug">
+      <ol className="space-y-1 text-[0.7rem] leading-snug">
         {events.map((e) => {
           const line = describeEvent(e, nameOf);
           return (
