@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { CodeTiles, ShareInvite } from '@/components/lobby/RoomCode';
+import { RulesButton } from '@/components/rules/RulesBook';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { api, RequestError } from '@/lib/client/api';
@@ -51,12 +52,20 @@ export function WaitingRoom({ view }: { view: GameView }) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]">
       <header className="animate-fade-up flex flex-col items-center gap-4 text-center">
-        <Link
-          href="/"
-          className="self-start text-xs font-bold uppercase tracking-widest text-ink-soft transition-colors hover:text-ink"
-        >
-          ← Quitter
-        </Link>
+        <div className="flex w-full items-baseline justify-between">
+          <Link
+            href="/"
+            className="text-xs font-bold uppercase tracking-widest text-ink-soft transition-colors hover:text-ink"
+          >
+            ← Quitter
+          </Link>
+          {/* L'attente avant le lancement est le meilleur moment pour lire les
+              règles : plus tard, on est au milieu d'un tour. */}
+          <RulesButton
+            className="text-xs font-bold uppercase tracking-widest text-ink-soft transition-colors hover:text-ink"
+            label="Règles"
+          />
+        </div>
         <p className="text-xs font-bold uppercase tracking-widest text-ink-soft">
           Code de la partie
         </p>
