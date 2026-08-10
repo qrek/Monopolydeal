@@ -475,59 +475,72 @@ function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: numbe
   }
 
   const colors = card.colors as [Color, Color];
+  const [a, b] = colors;
+  // Autant de lignes que le plus gros des deux lots : une case vide en face
+  // d'un palier dit d'elle-même « cette couleur n'en a pas autant ».
+  const paliers = Math.max(COLORS[a].size, COLORS[b].size);
+
   return (
     <Frame width={width}>
       <Plate background={PAPER_2} value={card.value} detail={detail} tight>
-        {detail !== 'minimal' && (
-          <>
-            <PlateName text="Loyer" detail={detail} />
-            {detail === 'full' && <PlateKicker text="À tous les adversaires" />}
-          </>
-        )}
+        {detail !== 'minimal' && <PlateName text="Loyer" detail={detail} />}
       </Plate>
 
       {detail !== 'minimal' && (
-        <div className="flex shrink-0 flex-col gap-[0.22em]">
-          {colors.map((color) => {
-            const cfg = COLORS[color];
-            const unit = unitOf(color);
+        // Une seule table à deux colonnes : les paliers écrits UNE fois à
+        // gauche, un montant par couleur en face. La version précédente
+        // répétait le nom de la couleur et ses paliers à chaque ligne — trois
+        // fois la même information dans une carte de 92 px.
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-end gap-[0.2em] pb-[0.18em]">
+            {/* Pas de libellé au-dessus des pastilles : la plaque dit déjà
+                LOYER, et « loyer dû » se repliait sur deux lignes en écrasant
+                la colonne des paliers. */}
+            <span className="min-w-0 flex-1" />
+            {colors.map((c) => (
+              <span
+                key={c}
+                className="h-[0.9em] w-[2.6em] shrink-0 rounded-[0.12em] border-[1.5px] border-ink"
+                style={{ background: COLORS[c].hex }}
+              />
+            ))}
+          </div>
+
+          {Array.from({ length: paliers }, (_, i) => {
+            const complete = colors.map((c) => i === COLORS[c].size - 1);
             return (
-              <div key={color}>
-                <div className="flex items-center gap-[0.3em] rounded-[0.14em] border-[1.5px] border-ink px-[0.3em] py-[0.14em]">
-                  <span
-                    className="size-[1.4em] shrink-0 rounded-[0.1em] border-[1.5px] border-ink"
-                    style={{ background: cfg.hex }}
-                  />
-                  {detail === 'full' && (
-                    <span className="min-w-0 flex-1 truncate text-[0.48em] font-extrabold uppercase leading-none tracking-[0.04em] text-ink">
-                      {cfg.label}
+              <div
+                key={i}
+                className="flex items-baseline gap-[0.2em] border-t border-dotted border-ink/30 py-[0.12em] text-[0.5em] font-semibold text-ink first:border-t-0"
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {detail === 'full' ? `${i + 1} carte${i ? 's' : ''}` : i + 1}
+                </span>
+                {colors.map((c, k) => {
+                  const rent = COLORS[c].rents[i];
+                  return (
+                    <span
+                      key={c}
+                      className={`w-[2.6em] shrink-0 rounded-[0.1em] py-[0.05em] text-center font-extrabold tabular-nums ${
+                        complete[k] ? 'bg-ink text-cream' : ''
+                      }`}
+                    >
+                      {rent === undefined ? '—' : `${rent} M`}
                     </span>
-                  )}
-                  <span className="ml-auto shrink-0 text-[0.54em] font-extrabold tabular-nums leading-none text-ink">
-                    {cfg.rents.join(' · ')} M
-                  </span>
-                </div>
-                {detail === 'full' && (
-                  <div className="mt-[0.14em] flex gap-[0.16em] text-[0.4em] font-bold">
-                    {cfg.rents.map((_, i) => (
-                      <span
-                        key={i}
-                        className={`flex-1 rounded-[0.12em] border border-ink/35 py-[0.1em] text-center ${
-                          i === cfg.size - 1 ? 'border-ink bg-ink text-cream' : 'text-ink'
-                        }`}
-                      >
-                        {i + 1} {i === 0 ? unit.one : unit.many}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                  );
+                })}
               </div>
             );
           })}
         </div>
       )}
 
-      {detail === 'full' && <Foot left="Une seule couleur par usage" />}
+      {detail === 'full' && (
+        <>
+          <Watermark />
+          <Foot left="À tous les adversaires" />
+        </>
+      )}
     </Frame>
   );
 }
