@@ -263,7 +263,12 @@ export type GameAction =
       playerId: string;
       cardId: CardId;
       color: Color;
-      targetPlayerId: string;
+      /**
+       * Une quittance bicolore frappe TOUS les adversaires : la cible n'a pas
+       * à être désignée, et l'indiquer ne change rien. Seule la quittance
+       * universelle vise un joueur, et l'exige.
+       */
+      targetPlayerId?: string;
       /** Cartes Double loyer jouées avec le loyer. Chacune coûte une action de plus. */
       doubleCardIds?: CardId[];
     }
