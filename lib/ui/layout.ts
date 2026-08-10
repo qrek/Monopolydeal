@@ -184,8 +184,13 @@ export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
 
 /** Écart entre deux lots posés côte à côte. */
 const GROUP_GAP = 6;
-/** En deçà, une carte n'est plus qu'un aplat de couleur : inutile de rétrécir. */
-const MIN_CARD = 30;
+/**
+ * Plancher de rétrécissement. À 22 px une carte n'est plus qu'un bandeau de
+ * couleur surmonté de sa pastille d'avancement — c'est peu, mais on voit
+ * encore QUE le lot existe et où il en est, alors qu'au-delà il disparaissait
+ * purement et simplement dans un défilement sans barre.
+ */
+const MIN_CARD = 22;
 /** Recouvrement des billets : au-delà, le montant centré serait rogné. */
 const BANK_REVEAL = 0.62;
 

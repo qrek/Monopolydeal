@@ -6,7 +6,7 @@
 
 'use client';
 
-import { memo } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
 import { useLongPress } from '@/components/cards/CardInspector';
@@ -148,6 +148,58 @@ export const GroupStack = memo(function GroupStack({
   );
 });
 
+/**
+ * Combien de lots restent hors champ, à droite.
+ *
+ * Le défilement horizontal existait déjà, mais sans barre : passé un certain
+ * nombre de lots, les derniers disparaissaient purement et simplement, sans que
+ * rien ne dise qu'il y avait quelque chose à voir. Un compteur et un dégradé
+ * valent mieux qu'un défilement qu'on ne soupçonne pas.
+ */
+function useHiddenCount(): [
+  (el: HTMLDivElement | null) => void,
+  number,
+] {
+  const el = useRef<HTMLDivElement | null>(null);
+  const [hidden, setHidden] = useState(0);
+
+  const read = useCallback(() => {
+    const node = el.current;
+    if (!node) return;
+    const bord = node.getBoundingClientRect().right;
+    let n = 0;
+    for (const enfant of node.children) {
+      // Un lot rogné de plus de deux pixels compte comme caché : sous ce seuil
+      // c'est un arrondi de mise en page, pas une carte qu'on rate.
+      if (enfant.getBoundingClientRect().right > bord + 2) n++;
+    }
+    setHidden(n);
+  }, []);
+
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      el.current = node;
+      read();
+    },
+    [read],
+  );
+
+  useEffect(() => {
+    const node = el.current;
+    if (!node) return;
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(node);
+    node.addEventListener('scroll', read, { passive: true });
+    return () => {
+      ro.disconnect();
+      node.removeEventListener('scroll', read);
+    };
+  }, [read]);
+
+  return [ref, hidden];
+}
+
 export function PropertyGroups({
   groups,
   cardWidth,
@@ -161,20 +213,41 @@ export function PropertyGroups({
   onMoveWild?: (cardId: CardId) => void;
   empty?: string;
 }) {
+  const [scroller, hidden] = useHiddenCount();
+
   if (groups.length === 0) {
     return <p className="py-1 text-[0.7rem] text-ink-soft">{empty}</p>;
   }
   return (
-    <div className="no-scrollbar flex items-start gap-1.5 overflow-x-auto">
-      {groups.map((g) => (
-        <GroupStack
-          key={g.id}
-          group={g}
-          cardWidth={cardWidth}
-          maxHeight={maxHeight}
-          onMoveWild={onMoveWild}
-        />
-      ))}
+    <div className="relative min-w-0">
+      <div ref={scroller} className="no-scrollbar flex items-start gap-1.5 overflow-x-auto">
+        {groups.map((g) => (
+          <GroupStack
+            key={g.id}
+            group={g}
+            cardWidth={cardWidth}
+            maxHeight={maxHeight}
+            onMoveWild={onMoveWild}
+          />
+        ))}
+      </div>
+
+      {hidden > 0 && (
+        <>
+          {/* Dégradé au bord : il dit qu'on peut faire glisser, sans occuper de
+              place ni intercepter le doigt. */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-board to-transparent"
+          />
+          <span
+            className="pointer-events-none absolute right-0 top-1/2 z-10 -translate-y-1/2 rounded-[0.25rem] border-2 border-ink bg-cream px-1 py-0.5 text-[0.6rem] font-extrabold leading-none tabular-nums text-ink shadow-card"
+            title={`${hidden} lot${hidden > 1 ? 's' : ''} hors champ — faites glisser`}
+          >
+            +{hidden}
+          </span>
+        </>
+      )}
     </div>
   );
 }
