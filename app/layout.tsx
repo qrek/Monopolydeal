@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Outfit } from 'next/font/google';
 
+import { FreshBuild } from '@/components/pwa/FreshBuild';
 import { ServiceWorker } from '@/components/pwa/ServiceWorker';
 
 import './globals.css';
@@ -65,6 +66,7 @@ export default function RootLayout({
       <body className="font-sans">
         {children}
         <ServiceWorker />
+        <FreshBuild />
       </body>
     </html>
   );
