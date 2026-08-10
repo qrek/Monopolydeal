@@ -3,7 +3,7 @@ import Link from 'next/link';
 /** Code de partie mal formé, ou URL inconnue. */
 export default function NotFound() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-4 px-5 text-center">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-4 px-5 pt-[env(safe-area-inset-top)] text-center">
       <p className="text-6xl font-extrabold tracking-tighter text-mono-red">404</p>
       <p className="text-lg font-bold">Rien à cette adresse.</p>
       <p className="text-sm text-ink-soft">

@@ -49,7 +49,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-5 py-8">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-5 pb-8 pt-[max(2rem,env(safe-area-inset-top))]">
       <header className="animate-fade-up flex flex-col items-center gap-4 text-center">
         <Link
           href="/"

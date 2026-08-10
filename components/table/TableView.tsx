@@ -172,14 +172,13 @@ export function TableView({ view }: { view: GameView }) {
           aria-hidden
           className="pointer-events-none absolute inset-0 z-0 grid place-items-center overflow-hidden"
         >
-          {/* Sans son ombre portée : à 5 % d'opacité elle ne se lit plus comme
-              un relief mais comme un cadre gris autour du bandeau. */}
-          {/* En produit plutôt qu'en transparence : le bandeau rouge posé à
-              plat sur le vert donnait un rectangle gris sale, alors qu'en
-              assombrissant le feutre il se lit comme une marque imprimée. */}
+          {/* Lettres seules, à l'encre, très effacées : le bandeau rouge, même
+              transparent, restait un rectangle bien visible au milieu du
+              tapis. Une marque doit se deviner, pas se remarquer. */}
           <Wordmark
             size={Math.round(viewport.height * 0.22)}
-            className="opacity-[0.09] mix-blend-multiply [&_.brand-bar]:shadow-none"
+            flat
+            className="opacity-[0.045]"
           />
         </div>
 

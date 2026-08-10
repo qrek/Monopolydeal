@@ -30,7 +30,7 @@ export function JoinForm({ code }: { code: string }) {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-5 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-5 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))]">
       <header className="animate-fade-up flex flex-col items-center gap-4 text-center">
         <p className="text-xs font-bold uppercase tracking-widest text-ink-soft">
           Tu es invité à la partie

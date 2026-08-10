@@ -20,7 +20,7 @@ import { isSupabaseConfigured } from '@/lib/supabase/client';
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-5 px-5 text-center">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center gap-5 px-5 pt-[env(safe-area-inset-top)] text-center">
       {children}
     </main>
   );

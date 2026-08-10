@@ -55,7 +55,7 @@ export function HomeScreen() {
   };
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-5 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-8 px-5 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))]">
       <header className="animate-fade-up flex flex-col items-center gap-3 text-center">
         <Wordmark size={44} />
         <p className="mx-auto max-w-xs text-balance text-sm leading-relaxed text-ink-soft">

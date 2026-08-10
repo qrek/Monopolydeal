@@ -33,7 +33,9 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: 'Monopoly Deal',
-    statusBarStyle: 'black-translucent',
+    // Et surtout pas « black-translucent » : le contenu passait alors SOUS la
+    // barre d'état, et « Quitter » se retrouvait sous l'horloge, intouchable.
+    statusBarStyle: 'default',
   },
   // Next n'émet plus que le nom standardisé `mobile-web-app-capable` ; les iOS
   // antérieurs à 17 ne connaissent que celui d'Apple, et sans lui le jeu

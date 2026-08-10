@@ -8,14 +8,28 @@ interface WordmarkProps {
   size?: number;
   /** Sans le mot « DEAL » : pour les endroits très étroits. */
   short?: boolean;
+  /**
+   * Sans le bandeau rouge : lettres seules, à l'encre. Pour une marque de fond
+   * — un aplat rouge, même très transparent, reste un rectangle bien visible.
+   */
+  flat?: boolean;
   className?: string;
 }
 
-export function Wordmark({ size = 34, short = false, className = '' }: WordmarkProps) {
+export function Wordmark({
+  size = 34,
+  short = false,
+  flat = false,
+  className = '',
+}: WordmarkProps) {
   return (
     <span className={`inline-flex items-center gap-1.5 ${className}`}>
       <span
-        className="brand-bar inline-flex items-center rounded-[0.2em] px-[0.45em] shadow-card"
+        className={
+          flat
+            ? 'inline-flex items-center text-ink'
+            : 'brand-bar inline-flex items-center rounded-[0.2em] px-[0.45em] shadow-card'
+        }
         style={{
           height: size,
           fontSize: size * 0.52,
