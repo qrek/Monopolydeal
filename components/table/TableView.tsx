@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Wordmark } from '@/components/brand/Wordmark';
-import { CardBack, CardFace } from '@/components/cards/CardFace';
+import { CardBack } from '@/components/cards/CardFace';
 import { DiscardModal } from '@/components/play/DiscardModal';
 import { DragLayer, Zone } from '@/components/play/DropZones';
 import { FlightLayer } from '@/components/play/FlightLayer';
@@ -151,11 +151,10 @@ export function TableView({ view }: { view: GameView }) {
 
   const opponents = seatOrder(state.players, view.viewerId);
   const playable = myTurn && state.phase === 'PLAY' && left > 0;
-  const top = state.discard[state.discard.length - 1];
   const held = ctl.drag?.cardId ?? ctl.selected;
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden">
+    <div className="safe-x flex h-dvh w-full overflow-hidden">
       <main className="flex min-w-0 flex-1 flex-col">
         {/* Bandeau ------------------------------------------------------- */}
         <header className="flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream px-2">
@@ -165,6 +164,18 @@ export function TableView({ view }: { view: GameView }) {
           <span className="shrink-0 rounded-[0.2rem] border-2 border-ink bg-paper px-1.5 py-0.5 text-[0.68rem] font-extrabold tracking-[0.15em]">
             {view.game.code}
           </span>
+          {/* Pioche et défausse : deux compteurs dans le bandeau. Posées au
+              milieu du tapis elles flottaient sans rien y faire, et les
+              montrer par intermittence aurait fait sauter la mise en page. */}
+          <span className="flex shrink-0 items-center gap-1 text-[0.68rem] font-bold leading-none text-ink-soft">
+            <CardBack width={13} />
+            <span className="tabular-nums">{state.deckCount}</span>
+            <span className="opacity-50">·</span>
+            <span className="tabular-nums" title="Cartes défaussées">
+              {state.discard.length}
+            </span>
+          </span>
+
           <span className="truncate text-[0.68rem] font-bold text-ink-soft">
             {PHASE_LABEL[state.phase]}
             {!myTurn && current && ` — ${current.name}`}
@@ -236,28 +247,9 @@ export function TableView({ view }: { view: GameView }) {
               />
             </Zone>
 
-            <Zone
-              ctl={ctl}
-              dest="ACTION"
-              active={playable}
-              className="flex shrink-0 items-end justify-center gap-2 px-2 pb-0.5"
-            >
-              <div className="flex flex-col items-center gap-0.5">
-                <CardBack width={scale.pile} />
-                <span className="board-label">Pioche {state.deckCount}</span>
-              </div>
-              <div className="flex flex-col items-center gap-0.5">
-                {top ? (
-                  <CardFace cardId={top} width={scale.pile} />
-                ) : (
-                  <div
-                    className="rounded-card border-2 border-dashed border-ink/30"
-                    style={{ width: scale.pile, height: Math.round(scale.pile * 1.4) }}
-                  />
-                )}
-                <span className="board-label">Défausse {state.discard.length}</span>
-              </div>
-            </Zone>
+            {/* Le tapis reste vide tant qu'on ne tient rien : il ne s'allume
+                qu'en cible « Jouer l'action », au centre, sous la main. */}
+            <Zone ctl={ctl} dest="ACTION" active={playable} className="min-w-0 flex-1" />
 
             <Zone
               ctl={ctl}
@@ -274,7 +266,7 @@ export function TableView({ view }: { view: GameView }) {
         </div>
 
         {/* Ma main : posée sur le tapis, sans cadre. --------------------- */}
-        <footer style={{ height: bands.hand }} className="shrink-0 px-2 pb-1">
+        <footer style={{ height: bands.hand }} className="safe-b shrink-0 px-2 pb-1">
           {ctl.error && (
             <button
               onClick={ctl.clearError}
@@ -301,7 +293,7 @@ export function TableView({ view }: { view: GameView }) {
             onClick={() => setLogOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 right-0 z-50 w-72 border-l-2 border-ink bg-cream shadow-panel"
+            className="safe-x fixed inset-y-0 right-0 z-50 w-72 border-l-2 border-ink bg-cream shadow-panel"
             aria-label="Journal de partie"
           >
             <div className="no-scrollbar h-full overflow-y-auto p-3">

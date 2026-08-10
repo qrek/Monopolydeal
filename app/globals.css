@@ -27,6 +27,34 @@
     font: inherit;
   }
 
+  /* --- Confort tactile -------------------------------------------------- */
+
+  /* Pas de flash bleu au doigt, pas de menu contextuel sur appui long : on
+     traîne des cartes, et un appui un peu appuyé ne doit pas ouvrir « copier ». */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  [role='button'] {
+    /* Supprime le délai de 300 ms et le zoom au double-tap. */
+    touch-action: manipulation;
+  }
+
+  /* Le plateau ne se sélectionne pas ; les champs de saisie, si. */
+  body {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   ::selection {
     @apply bg-mono-red text-cream;
   }
@@ -67,6 +95,19 @@
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /**
+   * Marges de sécurité. En paysage l'encoche et la barre d'accueil mangent les
+   * bords GAUCHE et DROIT selon le sens de rotation — d'où les deux côtés, et
+   * le bas pour l'indicateur d'accueil.
+   */
+  .safe-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .safe-b {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

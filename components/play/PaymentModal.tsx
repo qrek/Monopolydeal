@@ -104,14 +104,16 @@ export function PaymentModal({
           <p className="mb-3 text-sm text-ink-soft">
             Choisis dans ta banque et tes propriétés. Ta main est intouchable.
           </p>
-          <div className="flex flex-wrap gap-2">
+          {/* Une seule rangée : en paysage la place est horizontale, et une
+              grille obligeait à faire défiler la modale verticalement. */}
+          <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
             {payable.map((id) => {
               const on = picked.includes(id);
               return (
                 <button
                   key={id}
                   onClick={() => toggle(id)}
-                  className={`rounded-card transition-transform duration-200 ${
+                  className={`shrink-0 rounded-card transition-transform duration-200 ${
                     on ? '-translate-y-1.5 ring-4 ring-mono-red' : 'hover:-translate-y-1'
                   }`}
                   aria-pressed={on}

@@ -32,7 +32,8 @@ export function Zone({
   /** Faux hors de mon tour : la zone reste visible mais inerte. */
   active: boolean;
   className?: string;
-  children: React.ReactNode;
+  /** Absent pour le tapis : la zone n'est qu'une cible, sans contenu propre. */
+  children?: React.ReactNode;
 }) {
   const held = ctl.drag?.cardId ?? ctl.selected;
   const usable = active && Boolean(held) && destinationsFor(held as CardId).includes(dest);

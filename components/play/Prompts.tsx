@@ -118,8 +118,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-/** Grille de cartes cliquables — pour désigner une propriété précise. */
-function CardGrid({
+/** Rangée de cartes cliquables — pour désigner une propriété précise. */
+function CardRow({
   cards,
   selected,
   onPick,
@@ -132,12 +132,12 @@ function CardGrid({
     return <p className="text-sm text-ink-soft">Aucune carte volable ici.</p>;
   }
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
       {cards.map((id) => (
         <button
           key={id}
           onClick={() => onPick(id)}
-          className={`rounded-card transition-transform duration-200 ${
+          className={`shrink-0 rounded-card transition-transform duration-200 ${
             selected === id ? 'scale-105 ring-4 ring-mono-red' : 'hover:scale-105'
           }`}
         >
@@ -330,7 +330,7 @@ function SlyDealPrompt({
       </Section>
       {target && (
         <Section title="Quelle propriété">
-          <CardGrid
+          <CardRow
             cards={stealableCards(target)}
             selected={null}
             onPick={(cardId) => {
@@ -372,7 +372,7 @@ function ForcedDealPrompt({
   return (
     <>
       <Section title="Ta propriété">
-        <CardGrid cards={stealableCards(me)} selected={mine} onPick={setMine} />
+        <CardRow cards={stealableCards(me)} selected={mine} onPick={setMine} />
       </Section>
       <Section title="Chez qui">
         <div className="grid gap-2 sm:grid-cols-2">
@@ -392,7 +392,7 @@ function ForcedDealPrompt({
       </Section>
       {target && (
         <Section title="Sa propriété">
-          <CardGrid cards={stealableCards(target)} selected={theirs} onPick={setTheirs} />
+          <CardRow cards={stealableCards(target)} selected={theirs} onPick={setTheirs} />
         </Section>
       )}
       <Button

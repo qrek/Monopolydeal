@@ -49,14 +49,14 @@ export function DiscardModal({
         </Button>
       }
     >
-      <div className="flex flex-wrap gap-2">
+      <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
         {me.hand.map((id) => {
           const on = picked.includes(id);
           return (
             <button
               key={id}
               onClick={() => toggle(id)}
-              className={`rounded-card transition-transform duration-200 ${
+              className={`shrink-0 rounded-card transition-transform duration-200 ${
                 on ? '-translate-y-1.5 ring-4 ring-mono-red' : 'hover:-translate-y-1'
               }`}
               aria-pressed={on}

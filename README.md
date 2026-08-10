@@ -103,6 +103,27 @@ s'écrase à zéro sur un téléphone couché.
 - **Éventail** : pas et inclinaison calculés d'après la largeur réelle
   (`ResizeObserver`), débordement d'inclinaison compris.
 
+## Polish mobile (étape 7)
+
+Le jeu vise le téléphone en paysage ; le grand écran n'est plus une cible, la
+mise en page s'y adapte sans y être optimisée.
+
+- **Marges de sécurité** : en paysage l'encoche mange le bord gauche ou droit
+  selon le sens de rotation, d'où `env(safe-area-inset-left/right)` sur la table
+  et `inset-bottom` sous la main.
+- **Gestes** : pas de flash bleu au doigt, pas de menu contextuel sur appui long
+  (on traîne des cartes), pas de zoom au double-tap, pas de rebond de
+  défilement. Le plateau ne se sélectionne pas, les champs de saisie si.
+- **Modales en paysage** : les sélecteurs de cartes (paiement, défausse, cible)
+  défilent horizontalement sur une seule rangée. Une grille obligeait à faire
+  défiler la modale verticalement sur un écran de 390 px de haut.
+- **Pioche et défausse** ont quitté le centre du tapis pour deux compteurs dans
+  le bandeau : elles y flottaient sans rien y faire. Le centre ne s'allume plus
+  que pour recevoir une action.
+
+Vérifié sans débordement ni défilement parasite à 740×360, 812×375, 844×390 et
+932×430.
+
 ### Direction artistique
 
 Celle du plateau Monopoly : vert pâle en fond, rouge de la boîte en accent,
