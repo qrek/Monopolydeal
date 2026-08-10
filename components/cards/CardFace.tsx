@@ -1,14 +1,16 @@
 /**
  * Rendu d'une carte, entièrement en CSS/SVG — aucune image externe.
  *
- * Direction artistique Monopoly Deal : face crème cernée d'un filet noir,
- * bandeau de couleur portant le NOM DE LA RUE (et non celui de la couleur —
- * écrire « bleu » sur du bleu n'apprend rien), grille de loyers en dessous, et
- * pour les actions le texte de règle imprimé sur la carte.
+ * Direction artistique : le TITRE DE PROPRIÉTÉ du Monopoly, appliqué à tout le
+ * jeu. Carton crème cerné d'un filet noir, plaque de couleur pleine largeur
+ * portant le nom, pastille de valeur logée dans le coin de cette plaque, et
+ * dessous une échelle à points de conduite — libellé à gauche, chiffre à
+ * droite. Les cartes action, les loyers et les billets reprennent la même
+ * grammaire : c'est ce qui fait tenir le jeu ensemble.
  *
  * Une seule mesure pilote tout : `width`. La hauteur suit le ratio 5:7 et la
- * police est proportionnelle, si bien que les mêmes composants servent à la
- * main, aux lots et aux lots adverses.
+ * typographie est proportionnelle (1em = 11,5 % de la largeur), si bien que les
+ * mêmes composants servent à la main, aux lots et aux lots adverses.
  *
  * `memo` n'est pas cosmétique ici : une carte pèse une trentaine de nœuds, une
  * table en affiche facilement quarante, et le moindre changement d'état — dont
@@ -22,21 +24,22 @@ import { memo } from 'react';
 import { ActionGlyph } from '@/components/cards/ActionGlyph';
 import {
   COLORS,
-  HOTEL_RENT_BONUS,
-  HOUSE_RENT_BONUS,
   getCard,
   type Card,
   type CardId,
   type Color,
 } from '@/lib/engine';
-import { ACTION_RULES, moneyHue, rentRule } from '@/lib/ui/cards';
+import { ACTION_EFFECTS, moneyHue, unitOf } from '@/lib/ui/cards';
 import { readableInk } from '@/lib/ui/color';
 
 const RATIO = 1.4;
 
+/** Crème un peu plus sourd, pour les plaques qui n'ont pas de couleur propre. */
+const PAPER_2 = '#EFE8D6';
+
 /**
- * Le niveau de détail suit la taille : sous 46 px une carte n'est plus qu'un
- * aplat de couleur dans un lot, au-delà de 84 px elle porte tout son texte.
+ * Le niveau de détail suit la taille : sous 46 px une carte n'est plus qu'une
+ * plaque de couleur dans un lot, au-delà de 84 px elle porte tout son texte.
  */
 type Detail = 'full' | 'compact' | 'minimal';
 
@@ -51,41 +54,27 @@ interface CardFaceProps {
   width?: number;
 }
 
-/**
- * Valeur banque, en coin haut-gauche comme sur les cartes du jeu.
- *
- * Plus grande sur une carte pleine taille : en main, c'est le chiffre qu'on
- * consulte à chaque tour pour payer, et il était plus petit que le nom de la
- * rue qu'on ne lit qu'une fois.
- */
-function ValueCorner({ value, detail }: { value: number; detail: Detail }) {
-  if (value <= 0 || detail === 'minimal') return null;
-  const full = detail === 'full';
-  return (
-    <span
-      className={`absolute left-[0.25em] top-[0.25em] grid place-items-center rounded-[0.2em] border border-ink/80 bg-cream px-[0.15em] font-extrabold leading-none text-ink ${
-        full
-          ? 'h-[1.35em] min-w-[1.35em] text-[0.82em]'
-          : 'h-[1.5em] min-w-[1.5em] text-[0.62em]'
-      }`}
-    >
-      {value}M
-    </span>
-  );
-}
+// ---------------------------------------------------------------------------
+// Pièces communes
+// ---------------------------------------------------------------------------
 
 function Frame({
   children,
   width,
-  background,
+  background = '#FBF7EC',
+  flush = false,
 }: {
   children: React.ReactNode;
   width: number;
-  background: string;
+  background?: string;
+  /** Sans retrait intérieur : pour le joker, dont les deux moitiés vont aux bords. */
+  flush?: boolean;
 }) {
   return (
     <div
-      className="relative select-none overflow-hidden rounded-card border-2 border-ink shadow-card"
+      className={`relative flex select-none flex-col overflow-hidden rounded-card border-2 border-ink shadow-card ${
+        flush ? '' : 'gap-[0.28em] p-[0.42em]'
+      }`}
       style={{
         width,
         height: Math.round(width * RATIO),
@@ -99,382 +88,446 @@ function Frame({
 }
 
 /**
- * Grille des loyers de la couleur : le loyer croît avec le nombre de cartes
- * possédées, et le lot complet ouvre les bonus de construction.
+ * Valeur en banque. Elle vit DANS la plaque de couleur, calée dans son coin
+ * haut-gauche : posée à côté, elle se lisait comme une étiquette rapportée.
  */
-function RentTable({
-  color,
-  dense,
-  showColor = false,
-}: {
-  color: Color;
-  dense: boolean;
-  /** Nommer la couleur n'a de sens que sur un joker, qui en porte deux. */
-  showColor?: boolean;
-}) {
-  const cfg = COLORS[color];
+function Value({ value, detail }: { value: number; detail: Detail }) {
+  if (detail === 'minimal') return null;
   return (
-    // La grille occupe toute la hauteur restante : une carte à moitié vide ne
-    // ressemble pas à une carte de jeu de société. Le filet de couleur à gauche
-    // rattache la grille à SA couleur — sur un joker bicolore, deux grilles
-    // nues ne disaient pas laquelle allait avec laquelle.
+    <span className="absolute left-[0.28em] top-[0.28em] z-[2] grid h-[1.4em] min-w-[1.4em] place-items-center rounded-[0.18em] border-[1.5px] border-ink bg-cream px-[0.18em] text-[0.72em] font-extrabold leading-none text-ink">
+      {value}M
+    </span>
+  );
+}
+
+/**
+ * Plaque de titre : pleine largeur, calée sur les bords de la carte comme sur
+ * les cartes d'origine. Le retrait à gauche est la place réservée à la
+ * pastille — le nom ne peut donc jamais passer dessous.
+ */
+function Plate({
+  background,
+  color,
+  value,
+  detail,
+  children,
+  tight = false,
+}: {
+  background: string;
+  color?: string;
+  value?: number;
+  detail: Detail;
+  children?: React.ReactNode;
+  /** Plaque basse, pour les cartes qui ont besoin de place dessous. */
+  tight?: boolean;
+}) {
+  const showValue = value !== undefined && value > 0 && detail !== 'minimal';
+  return (
     <div
-      className="flex min-h-0 flex-1 flex-col gap-[0.08em] pl-[0.25em]"
-      style={{ borderLeft: `0.3em solid ${cfg.hex}` }}
+      className={`relative -mx-[0.42em] -mt-[0.42em] flex shrink-0 flex-col items-center justify-center gap-[0.12em] rounded-t-[0.28em] border-b-2 border-ink px-[0.45em] text-center ${
+        tight ? 'py-[0.35em]' : 'py-[0.45em]'
+      } ${showValue ? 'pl-[2.3em]' : ''}`}
+      style={{ background, color, minHeight: tight ? undefined : '3.1em' }}
     >
-      <span className="mb-[0.15em] shrink-0 text-[0.56em] font-extrabold uppercase leading-none tracking-[0.14em] text-ink-soft">
-        Loyer{showColor ? ` ${cfg.label}` : ''}
+      {showValue && <Value value={value} detail={detail} />}
+      {children}
+    </div>
+  );
+}
+
+/** Nom porté par la plaque. Il rétrécit avec sa longueur plutôt que de déborder. */
+function PlateName({ text, detail }: { text: string; detail: Detail }) {
+  if (detail === 'minimal') return null;
+  const scale =
+    text.length > 26 ? 0.5 : text.length > 18 ? 0.58 : text.length > 11 ? 0.64 : 0.7;
+  return (
+    <span
+      className="min-w-0 font-extrabold uppercase leading-[1.05] tracking-tight [hyphens:auto] [overflow-wrap:anywhere]"
+      style={{ fontSize: `${detail === 'full' ? scale : scale * 0.92}em` }}
+    >
+      {text}
+    </span>
+  );
+}
+
+/** Sur-titre en petites capitales, au-dessus du nom. */
+function PlateKicker({ text }: { text: string }) {
+  return (
+    <span className="text-[0.4em] font-extrabold uppercase leading-none tracking-[0.2em] opacity-80">
+      {text}
+    </span>
+  );
+}
+
+interface Row {
+  label: string;
+  value?: string;
+  /** Palier du lot complet : en négatif. */
+  full?: boolean;
+  /** Bonus conditionnel ou condition d'usage : effacé d'un cran. */
+  faded?: boolean;
+}
+
+/** Échelle à points de conduite, la mécanique de lecture du titre de propriété. */
+function Ladder({ rows, dense = false }: { rows: Row[]; dense?: boolean }) {
+  return (
+    <div
+      className={`flex shrink-0 flex-col gap-[0.06em] font-semibold ${
+        dense ? 'text-[0.52em]' : 'text-[0.58em]'
+      }`}
+    >
+      {rows.map((r) => (
+        <div
+          key={r.label}
+          className={`flex items-baseline gap-[0.3em] ${
+            r.full ? '-mx-[0.25em] rounded-[0.1em] bg-ink px-[0.25em] py-[0.1em] text-cream' : ''
+          } ${r.faded ? 'font-medium opacity-40' : ''}`}
+        >
+          <span className="shrink-0">{r.label}</span>
+          <span
+            className={`min-w-0 flex-1 translate-y-[-0.18em] border-b border-dotted ${
+              r.full ? 'border-cream/40' : 'border-ink/45'
+            }`}
+          />
+          {r.value && (
+            <span className="shrink-0 font-extrabold tabular-nums">{r.value}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Le vide entre l'échelle et le pied est celui d'un vrai titre de propriété.
+ * On l'occupe comme le ferait un document imprimé : une marque en filigrane,
+ * assez pâle pour ne rien disputer à la lecture.
+ */
+function Watermark() {
+  return (
+    <p
+      aria-hidden
+      className="my-auto select-none text-center text-[0.46em] font-extrabold uppercase leading-none tracking-[0.3em] text-ink opacity-[0.13]"
+    >
+      Monopoly
+    </p>
+  );
+}
+
+function Foot({ left, right }: { left: string; right?: string }) {
+  return (
+    <div
+      className={`mt-auto flex shrink-0 gap-[0.4em] whitespace-nowrap border-t-[1.5px] border-ink pt-[0.24em] text-[0.44em] font-bold uppercase leading-none tracking-[0.06em] text-ink opacity-80 ${
+        right ? 'justify-between' : 'justify-center'
+      }`}
+    >
+      <span>{left}</span>
+      {right && <span>{right}</span>}
+    </div>
+  );
+}
+
+/** Dix couleurs en pavés : on lit « toutes » d'un coup d'œil. */
+function Swatches() {
+  const colors = Object.keys(COLORS) as Color[];
+  return (
+    <div className="grid shrink-0 grid-cols-5 gap-[0.16em]">
+      {colors.map((c) => (
+        <span
+          key={c}
+          className="rounded-[0.1em] border-[1.5px] border-ink"
+          style={{ background: COLORS[c].hex, aspectRatio: '1.5' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const RAINBOW = `linear-gradient(90deg, ${(Object.keys(COLORS) as Color[])
+  .map((c, i) => `${COLORS[c].hex} ${i * 10}% ${(i + 1) * 10}%`)
+  .join(', ')})`;
+
+/** Cartouche crème posé sur la couleur, comme le bandeau blanc des jokers. */
+function Cartouche({ word, sub }: { word: string; sub?: string }) {
+  return (
+    <span className="flex flex-col items-center gap-[0.04em] rounded-[0.16em] border-2 border-ink bg-cream px-[0.6em] pb-[0.26em] pt-[0.22em] text-ink">
+      <span className="text-[1em] font-extrabold uppercase leading-[0.95] tracking-[0.02em]">
+        {word}
       </span>
-      {cfg.rents.map((rent, i) => {
-        const complete = i === cfg.size - 1;
+      {sub && (
+        <span className="text-[0.4em] font-extrabold uppercase leading-none tracking-[0.14em] opacity-75">
+          {sub}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Faces
+// ---------------------------------------------------------------------------
+
+function rentRows(color: Color, dense: boolean): Row[] {
+  const cfg = COLORS[color];
+  const unit = unitOf(color);
+  return cfg.rents.map((rent, i) => ({
+    label: dense ? String(i + 1) : `${i + 1} ${i === 0 ? unit.one : unit.many}`,
+    value: `${rent} M`,
+    full: i === cfg.size - 1,
+  }));
+}
+
+function PropertyFace({ card, width }: { card: Card & { kind: 'PROPERTY' }; width: number }) {
+  const detail = detailFor(width);
+  const cfg = COLORS[card.color];
+  const rows = rentRows(card.color, detail !== 'full');
+  if (detail === 'full' && cfg.buildable) {
+    // Les montants viennent des cartes construction elles-mêmes : deux
+    // sources pour le même chiffre finissent toujours par diverger.
+    rows.push(
+      { label: 'Maison', value: ACTION_EFFECTS.HOUSE.value, faded: true },
+      { label: 'Hôtel', value: ACTION_EFFECTS.HOTEL.value, faded: true },
+    );
+  }
+
+  return (
+    <Frame width={width}>
+      <Plate background={cfg.hex} color={readableInk(cfg.hex)} value={card.value} detail={detail}>
+        <PlateName text={card.label} detail={detail} />
+      </Plate>
+      {detail !== 'minimal' && <Ladder rows={rows} dense={detail !== 'full'} />}
+      {detail === 'full' && (
+        <>
+          <Watermark />
+          <Foot left={cfg.label} right={`${cfg.size} ${unitOf(card.color).many}`} />
+        </>
+      )}
+    </Frame>
+  );
+}
+
+/**
+ * Joker bicolore, imprimé tête-bêche — exactement comme la carte d'origine.
+ * La couleur qu'on lit à l'endroit est celle qu'on joue : le geste est écrit
+ * dans l'objet, il n'y a aucune convention à expliquer.
+ */
+function WildFace({ card, width }: { card: Card & { kind: 'WILD' }; width: number }) {
+  const detail = detailFor(width);
+  const [a, b] = card.colors;
+
+  return (
+    <Frame width={width} flush>
+      {[a, b].map((color, i) => {
+        const cfg = COLORS[color];
         return (
           <div
-            key={rent}
-            className={`flex min-h-0 flex-1 items-center justify-between rounded-[0.15em] px-[0.2em] text-[0.58em] font-bold leading-none tabular-nums ${
-              complete ? 'bg-ink text-cream' : 'bg-ink/[0.07] text-ink'
+            key={`${color}-${i}`}
+            className={`flex min-h-0 flex-1 flex-col ${
+              i === 0 ? 'border-b border-dashed border-ink/30' : 'rotate-180'
             }`}
           >
-            <span>
-              {i + 1} carte{i > 0 ? 's' : ''}
-            </span>
-            <span>{rent} M</span>
+            <div
+              className="relative flex shrink-0 flex-col items-center justify-center rounded-t-[0.28em] border-b-2 border-ink py-[0.3em] pl-[2.3em] pr-[0.45em] text-center"
+              style={{ background: cfg.hex, color: readableInk(cfg.hex) }}
+            >
+              <Value value={card.value} detail={detail} />
+              {detail === 'full' && <PlateKicker text="Joker" />}
+              {detail !== 'minimal' && (
+                <span className="text-[0.62em] font-extrabold uppercase leading-none tracking-[0.02em]">
+                  {cfg.label}
+                </span>
+              )}
+            </div>
+            {detail === 'full' && (
+              <div className="flex min-h-0 flex-1 flex-col justify-center px-[0.42em] py-[0.2em]">
+                <Ladder rows={rentRows(color, false)} />
+              </div>
+            )}
           </div>
         );
       })}
-      {!dense && cfg.buildable && (
-        <p className="shrink-0 text-[0.46em] font-bold leading-tight text-ink-soft">
-          Maison +{HOUSE_RENT_BONUS} M · Hôtel +{HOTEL_RENT_BONUS} M
-        </p>
-      )}
-    </div>
+    </Frame>
   );
 }
 
-/** Bandeau de couleur portant le nom de la propriété. */
-function NameBand({
-  color,
-  name,
-  detail,
-  heightPct,
-}: {
-  color: Color;
-  name: string;
-  detail: Detail;
-  heightPct: number;
-}) {
-  const cfg = COLORS[color];
-  const ink = readableInk(cfg.hex);
-  // Un nom long rétrécit et passe à la ligne, mais reste lisible : en dessous
-  // de ~0,5em il n'est plus qu'une trace grise sur l'aplat de couleur.
-  const scale = name.length > 26 ? 0.52 : name.length > 18 ? 0.62 : 0.72;
-  return (
-    <div
-      className="flex items-center justify-center border-b-2 border-ink px-[0.25em] text-center"
-      style={{ height: `${heightPct}%`, background: cfg.hex, color: ink }}
-    >
-      {detail !== 'minimal' && (
-        // min-w-0 : sans lui l'enfant flex refuse de rétrécir, le nom reste sur
-        // une ligne et « Avenue des Champs-Élysées » se fait couper au bord.
-        <span
-          className="min-w-0 font-extrabold uppercase leading-[1.05] tracking-tight [overflow-wrap:anywhere] [hyphens:auto]"
-          style={{ fontSize: `${scale}em` }}
-        >
-          {name}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function PropertyFace({
-  card,
-  width,
-}: {
-  card: Card & { kind: 'PROPERTY' };
-  width: number;
-}) {
+function WildAnyFace({ card, width }: { card: Card & { kind: 'WILD_ANY' }; width: number }) {
   const detail = detailFor(width);
   return (
-    <Frame width={width} background="#FBF7EC">
-      <NameBand
-        color={card.color}
-        name={card.label}
-        detail={detail}
-        heightPct={detail === 'minimal' ? 46 : 38}
-      />
-      {detail !== 'minimal' && (
-        <div className="flex h-[62%] flex-col px-[0.3em] pb-[0.25em] pt-[0.1em]">
-          {detail === 'full' ? (
-            <RentTable color={card.color} dense={false} />
-          ) : (
-            <RentTable color={card.color} dense />
-          )}
-        </div>
+    <Frame width={width}>
+      <Plate background={RAINBOW} value={card.value} detail={detail} tight>
+        {detail !== 'minimal' && (
+          <Cartouche word="Joker" sub={detail === 'full' ? 'Toutes couleurs' : undefined} />
+        )}
+      </Plate>
+      {detail === 'full' && (
+        <>
+          <Swatches />
+          <Ladder
+            rows={[
+              { label: 'Se pose dans', value: 'tout lot', full: true },
+              { label: 'Ne vaut rien', value: '0 M', faded: true },
+              { label: 'Ne paie rien', value: '0 M', faded: true },
+            ]}
+          />
+          <Watermark />
+          <Foot left="Joker universel" />
+        </>
       )}
-      <ValueCorner value={card.value} detail={detail} />
     </Frame>
   );
 }
 
 /**
- * Joker bicolore. Une moitié par couleur : le bandeau nomme la couleur, les
- * loyers viennent juste dessous.
- *
- * Ni sous-titre « LOYER », ni bonus de construction, ni filet de couleur ici :
- * la carte doit loger deux échelles complètes (jusqu'à 4 lignes pour les Gares)
- * dans la hauteur d'une seule carte. Tout ce qui n'est pas un chiffre est
- * supprimé pour que les chiffres respirent.
+ * Billet. Ni nom, ni échelle, ni pastille : il n'a qu'un montant, et le répéter
+ * dans un coin ne servait à rien. Le cadre guilloché occupe la place que prend
+ * l'échelle ailleurs, ce qui rend les billets reconnaissables sans les lire.
  */
-function WildFace({ card, width }: { card: Card & { kind: 'WILD' }; width: number }) {
-  const [a, b] = card.colors;
-  const detail = detailFor(width);
-
-  return (
-    <Frame width={width} background="#FBF7EC">
-      <div className="flex h-full flex-col">
-        {[a, b].map((color, i) => {
-          const cfg = COLORS[color];
-          return (
-            <div
-              key={color}
-              className={`flex h-1/2 flex-col ${i === 1 ? 'border-t-2 border-ink' : ''}`}
-            >
-              <div
-                className="flex h-[26%] shrink-0 items-center justify-center border-b border-ink/70 px-[0.2em]"
-                style={{ background: cfg.hex, color: readableInk(cfg.hex) }}
-              >
-                {detail !== 'minimal' && (
-                  <span className="text-[0.5em] font-extrabold uppercase leading-none tracking-tight">
-                    {cfg.label}
-                  </span>
-                )}
-              </div>
-              {detail === 'full' && (
-                <div className="flex min-h-0 flex-1 flex-col gap-px p-[0.15em]">
-                  {cfg.rents.map((rent, r) => {
-                    const complete = r === cfg.size - 1;
-                    return (
-                      <div
-                        key={rent}
-                        className={`flex min-h-0 flex-1 items-center justify-between rounded-[0.12em] px-[0.25em] text-[0.56em] font-bold leading-none tabular-nums ${
-                          complete ? 'bg-ink text-cream' : 'text-ink'
-                        }`}
-                      >
-                        <span>{r + 1}</span>
-                        <span>{rent} M</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {detail === 'compact' && (
-        <span className="absolute inset-x-[0.2em] top-1/2 -translate-y-1/2 rounded-[0.15em] border border-ink bg-cream py-[0.1em] text-center text-[0.5em] font-extrabold uppercase leading-none tracking-tight text-ink">
-          Joker
-        </span>
-      )}
-      <ValueCorner value={card.value} detail={detail} />
-    </Frame>
-  );
-}
-
-/**
- * Joker universel : les 10 couleurs en bandes verticales pleine hauteur,
- * barrées d'un bandeau noir. Le damier 2×5 précédent ressemblait à une mire de
- * réglage ; des bandes se lisent d'emblée comme « toutes les couleurs ».
- */
-function WildAnyFace({
-  card,
-  width,
-}: {
-  card: Card & { kind: 'WILD_ANY' };
-  width: number;
-}) {
-  const detail = detailFor(width);
-  const colors = Object.keys(COLORS) as Color[];
-  return (
-    <Frame width={width} background="#FBF7EC">
-      <div className="absolute inset-0 flex">
-        {colors.map((c) => (
-          <span key={c} className="flex-1" style={{ background: COLORS[c].hex }} />
-        ))}
-      </div>
-      {detail !== 'minimal' && (
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-y-2 border-ink bg-ink py-[0.25em] text-center">
-          <span className="block text-[0.62em] font-extrabold uppercase leading-none tracking-[0.12em] text-cream">
-            Joker
-          </span>
-          {detail === 'full' && (
-            <span className="mt-[0.15em] block text-[0.44em] font-bold uppercase leading-none tracking-[0.1em] text-cream/85">
-              universel
-            </span>
-          )}
-        </div>
-      )}
-      <ValueCorner value={card.value} detail={detail} />
-    </Frame>
-  );
-}
-
 function MoneyFace({ card, width }: { card: Card & { kind: 'MONEY' }; width: number }) {
   const detail = detailFor(width);
   return (
-    <Frame width={width} background={moneyHue(card.value)}>
-      {/* Guilloché de billet : deux jeux de rayures CSS croisées. */}
+    <Frame width={width}>
       <div
-        aria-hidden
-        className="absolute inset-0 opacity-20"
+        className="flex min-h-0 flex-1 items-center justify-center gap-[0.1em] rounded-[0.16em] border-[1.5px] border-ink font-extrabold leading-[0.82] tracking-[-0.045em] text-ink"
         style={{
+          background: moneyHue(card.value),
           backgroundImage:
-            'repeating-linear-gradient(135deg, #4a3f16 0 1px, transparent 1px 7px)',
+            'repeating-linear-gradient(48deg, rgba(20,20,20,.09) 0 1px, transparent 1px 6px), repeating-linear-gradient(-48deg, rgba(20,20,20,.09) 0 1px, transparent 1px 6px)',
         }}
-      />
-      <div className="absolute inset-[0.28em] rounded-[0.2em] border border-ink/40" />
-      <div className="relative grid h-full place-items-center">
-        <span className="font-extrabold leading-none text-ink">
-          <span className="text-[2.7em] tracking-tighter">{card.value}</span>
-          <span className="text-[1.1em]">M</span>
-        </span>
+      >
+        <span className="text-[3.2em]">{card.value}</span>
+        <span className="text-[1.05em] tracking-[0.02em]">M</span>
       </div>
-      {detail !== 'minimal' && (
-        <span className="absolute left-[0.3em] top-[0.25em] text-[0.62em] font-extrabold leading-none text-ink">
-          {card.value} M
-        </span>
-      )}
+      {detail === 'full' && <Foot left="Banque" />}
     </Frame>
-  );
-}
-
-/** En-tête rouge des cartes Action, comme la bande titre du jeu. */
-function ActionBand({ label, detail }: { label: string; detail: Detail }) {
-  return (
-    <div className="flex h-[20%] items-center justify-center border-b-2 border-ink bg-mono-red px-[0.2em] text-center">
-      {detail !== 'minimal' && (
-        <span
-          className="font-extrabold uppercase leading-[1.05] tracking-tight text-cream"
-          style={{ fontSize: label.length > 14 ? '0.46em' : '0.54em' }}
-        >
-          {label}
-        </span>
-      )}
-    </div>
   );
 }
 
 function ActionFace({ card, width }: { card: Card & { kind: 'ACTION' }; width: number }) {
   const detail = detailFor(width);
+  const effect = ACTION_EFFECTS[card.action];
+  // Le Refus est la seule carte qui se joue CONTRE une autre, hors de son tour :
+  // c'est la seule à porter une plaque noire.
+  const defensive = card.action === 'JUST_SAY_NO';
+
   return (
-    <Frame width={width} background="#FBF7EC">
-      <div className="flex h-full flex-col">
-        <ActionBand label={card.label} detail={detail} />
-        {/* Grand : le pictogramme est le repère principal d'une carte Action,
-            le titre ne fait que confirmer. */}
-        <div className="grid flex-1 place-items-center px-[0.2em] py-[0.2em]">
-          <ActionGlyph kind={card.action} className="w-[3.8em]" />
-        </div>
-        {/* La règle est imprimée à même la carte, sans cartouche : le cadre
-            gris rétrécissait le texte et laissait du vide autour. */}
-        {detail === 'full' && (
-          <p className="px-[0.4em] pb-[0.35em] text-center text-[0.5em] font-semibold leading-[1.3] text-ink">
-            {ACTION_RULES[card.action]}
-          </p>
-        )}
+    <Frame width={width}>
+      <Plate
+        background={defensive ? '#141414' : '#ED1B24'}
+        color="#FBF7EC"
+        value={card.value}
+        detail={detail}
+        tight
+      >
+        <PlateName text={card.label} detail={detail} />
+      </Plate>
+      <div className="grid min-h-0 flex-1 place-items-center">
+        <ActionGlyph kind={card.action} className="w-[3.4em]" />
       </div>
-      <ValueCorner value={card.value} detail={detail} />
+      {detail !== 'minimal' && (
+        <Ladder
+          dense={detail !== 'full'}
+          rows={
+            detail === 'full' && effect.note
+              ? [
+                  { label: effect.label, value: effect.value, full: true },
+                  { label: effect.note, faded: true },
+                ]
+              : [{ label: effect.label, value: effect.value, full: true }]
+          }
+        />
+      )}
     </Frame>
   );
 }
 
 /**
- * Carte Loyer. Comme sur la carte du jeu, elle se lit dans les deux sens : une
- * couleur par moitié, et le mot LOYER répété tête-bêche. Posée au milieu de la
- * table, elle reste lisible par celui d'en face.
+ * Carte Loyer, traitée comme une quittance : les couleurs concernées en
+ * pastilles, le montant en face, les paliers rappelés dessous. On voit d'un
+ * coup ce qu'on peut réclamer et pour quel lot — c'était le reproche fait à
+ * l'ancienne version, où rien ne disait quel loyer allait avec quelle couleur.
  */
 function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: number }) {
   const detail = detailFor(width);
 
   if (card.universal) {
-    const colors = Object.keys(COLORS) as Color[];
     return (
-      // Loyer universel : les 10 couleurs en bandes verticales pleine hauteur,
-      // barrées du mot LOYER. La grille 5×2 précédente faisait mire de réglage.
-      <Frame width={width} background="#FBF7EC">
-        <div className="absolute inset-0 flex">
-          {colors.map((c) => (
-            <span key={c} className="flex-1" style={{ background: COLORS[c].hex }} />
-          ))}
-        </div>
-        <div className="relative flex h-full flex-col justify-end">
-          <div className="border-y-2 border-ink bg-ink py-[0.28em] text-center">
-            {detail !== 'minimal' && (
-              <span className="text-[0.8em] font-extrabold uppercase leading-none tracking-[0.14em] text-cream">
-                Loyer
-              </span>
-            )}
-          </div>
+      <Frame width={width}>
+        <Plate background={RAINBOW} value={card.value} detail={detail} tight>
           {detail !== 'minimal' && (
-            <div className="flex h-[34%] flex-col items-center justify-center bg-cream px-[0.3em] text-center">
-              <span className="text-[0.5em] font-extrabold uppercase leading-none tracking-[0.12em] text-ink-soft">
-                Toutes couleurs
-              </span>
-              {detail === 'full' && (
-                <p className="mt-[0.2em] text-[0.44em] font-semibold leading-[1.25] text-ink-soft">
-                  {rentRule(true, card.colors)}
-                </p>
-              )}
-            </div>
+            <Cartouche word="Loyer" sub={detail === 'full' ? 'Toutes couleurs' : undefined} />
           )}
-        </div>
-        <ValueCorner value={card.value} detail={detail} />
+        </Plate>
+        {detail === 'full' && (
+          <>
+            <Ladder
+              rows={[
+                { label: 'Couleur', value: 'au choix' },
+                { label: 'Cible', value: '1 joueur' },
+                { label: 'Montant', value: 'loyer du lot', full: true },
+              ]}
+            />
+            <Watermark />
+            <Foot left="Double loyer applicable" />
+          </>
+        )}
       </Frame>
     );
   }
 
-  const [a, b] = card.colors as [Color, Color];
-  const halves: Array<{ color: Color; flipped: boolean }> = [
-    { color: a, flipped: false },
-    { color: b, flipped: true },
-  ];
-
+  const colors = card.colors as [Color, Color];
   return (
-    <Frame width={width} background="#FBF7EC">
-      <div className="flex h-full flex-col">
-        {halves.map(({ color, flipped }, i) => {
-          const cfg = COLORS[color];
-          const ink = readableInk(cfg.hex);
-          return (
-            <div
-              key={color}
-              className={`flex h-1/2 items-center justify-center px-[0.2em] ${
-                i === 1 ? 'border-t-2 border-ink' : ''
-              }`}
-              style={{
-                background: cfg.hex,
-                color: ink,
-                // La moitié du bas se lit depuis l'autre bord de la table.
-                transform: flipped ? 'rotate(180deg)' : undefined,
-              }}
-            >
-              <div className="text-center">
-                {detail !== 'minimal' && (
-                  <span className="block text-[0.72em] font-extrabold uppercase leading-none tracking-[0.1em]">
-                    Loyer
+    <Frame width={width}>
+      <Plate background={PAPER_2} value={card.value} detail={detail} tight>
+        {detail !== 'minimal' && (
+          <>
+            <PlateName text="Loyer" detail={detail} />
+            {detail === 'full' && <PlateKicker text="À tous les adversaires" />}
+          </>
+        )}
+      </Plate>
+
+      {detail !== 'minimal' && (
+        <div className="flex shrink-0 flex-col gap-[0.22em]">
+          {colors.map((color) => {
+            const cfg = COLORS[color];
+            const unit = unitOf(color);
+            return (
+              <div key={color}>
+                <div className="flex items-center gap-[0.3em] rounded-[0.14em] border-[1.5px] border-ink px-[0.3em] py-[0.14em]">
+                  <span
+                    className="size-[1.4em] shrink-0 rounded-[0.1em] border-[1.5px] border-ink"
+                    style={{ background: cfg.hex }}
+                  />
+                  {detail === 'full' && (
+                    <span className="min-w-0 flex-1 truncate text-[0.48em] font-extrabold uppercase leading-none tracking-[0.04em] text-ink">
+                      {cfg.label}
+                    </span>
+                  )}
+                  <span className="ml-auto shrink-0 text-[0.54em] font-extrabold tabular-nums leading-none text-ink">
+                    {cfg.rents.join(' · ')} M
                   </span>
-                )}
-                {detail !== 'minimal' && (
-                  <span className="mt-[0.15em] block text-[0.46em] font-extrabold uppercase leading-none tracking-tight opacity-90">
-                    {cfg.label}
-                  </span>
+                </div>
+                {detail === 'full' && (
+                  <div className="mt-[0.14em] flex gap-[0.16em] text-[0.4em] font-bold">
+                    {cfg.rents.map((_, i) => (
+                      <span
+                        key={i}
+                        className={`flex-1 rounded-[0.12em] border border-ink/35 py-[0.1em] text-center ${
+                          i === cfg.size - 1 ? 'border-ink bg-ink text-cream' : 'text-ink'
+                        }`}
+                      >
+                        {i + 1} {i === 0 ? unit.one : unit.many}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
-          );
-        })}
-      </div>
-      <ValueCorner value={card.value} detail={detail} />
+            );
+          })}
+        </div>
+      )}
+
+      {detail === 'full' && <Foot left="Une seule couleur par usage" />}
     </Frame>
   );
 }
@@ -502,31 +555,25 @@ export const CardFace = memo(function CardFace({ cardId, width = 96 }: CardFaceP
 export const CardBack = memo(function CardBack({ width = 96 }: { width?: number }) {
   return (
     <div
-      className="relative select-none overflow-hidden rounded-card border-2 border-ink shadow-card"
+      className="relative grid select-none place-items-center overflow-hidden rounded-card border-2 border-ink shadow-card"
       style={{
         width,
         height: Math.round(width * RATIO),
         fontSize: width * 0.115,
         background: '#ED1B24',
+        backgroundImage:
+          'repeating-linear-gradient(45deg, rgba(0,0,0,.14) 0 2px, transparent 2px 9px), repeating-linear-gradient(-45deg, rgba(255,255,255,.10) 0 2px, transparent 2px 9px)',
       }}
     >
-      <div
-        aria-hidden
-        className="absolute inset-0 opacity-25"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(45deg, #7d0d12 0 3px, transparent 3px 10px)',
-        }}
-      />
-      <div className="absolute inset-[0.3em] rounded-[0.2em] border border-cream/60" />
       {width >= 46 && (
-        <div className="absolute inset-0 grid place-items-center">
-          <span className="rotate-[-8deg] text-center text-[0.5em] font-extrabold uppercase leading-tight tracking-tight text-cream">
+        <span className="rounded-[0.2em] border-2 border-cream bg-ink/20 px-[0.6em] py-[0.5em] text-center text-cream">
+          <span className="block text-[0.72em] font-extrabold uppercase leading-none tracking-tight">
             Monopoly
-            <br />
+          </span>
+          <span className="mt-[0.2em] block text-[0.44em] font-extrabold uppercase leading-none tracking-[0.28em]">
             Deal
           </span>
-        </div>
+        </span>
       )}
     </div>
   );

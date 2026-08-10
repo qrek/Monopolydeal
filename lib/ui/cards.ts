@@ -4,7 +4,76 @@
  * sur ce qui est jouable.
  */
 
-import { ACTIONS, COLORS, type ActionKind, type Color } from '@/lib/engine';
+import {
+  ACTIONS,
+  BIRTHDAY_AMOUNT,
+  COLORS,
+  DEBT_COLLECTOR_AMOUNT,
+  HOTEL_RENT_BONUS,
+  HOUSE_RENT_BONUS,
+  PASS_GO_DRAW,
+  type ActionKind,
+  type Color,
+} from '@/lib/engine';
+
+/**
+ * L'effet d'une carte action, dit dans le registre d'une échelle de loyers :
+ * un libellé à gauche, un chiffre à droite, et la condition sur une ligne
+ * effacée dessous. C'est ce qui permet aux actions de partager la grammaire des
+ * titres de propriété au lieu d'être une famille à part.
+ *
+ * Les montants viennent des constantes du moteur : un texte qui les recopierait
+ * finirait par mentir le jour où une règle bouge.
+ */
+export interface ActionEffect {
+  label: string;
+  value: string;
+  /** Condition d'usage, imprimée en retrait. */
+  note?: string;
+}
+
+export const ACTION_EFFECTS: Record<ActionKind, ActionEffect> = {
+  DEAL_BREAKER: { label: 'Tu prends', value: '1 lot complet', note: 'Constructions comprises' },
+  SLY_DEAL: { label: 'Tu prends', value: '1 propriété', note: 'Hors lot complet' },
+  FORCED_DEAL: { label: 'Tu échanges', value: '1 contre 1', note: 'Hors lot complet' },
+  DEBT_COLLECTOR: {
+    label: 'Tu réclames',
+    value: `${DEBT_COLLECTOR_AMOUNT} M`,
+    note: 'À un seul joueur',
+  },
+  BIRTHDAY: {
+    label: 'Chacun te donne',
+    value: `${BIRTHDAY_AMOUNT} M`,
+    note: 'Tous les joueurs',
+  },
+  PASS_GO: {
+    label: 'Tu pioches',
+    value: `${PASS_GO_DRAW} cartes`,
+    note: 'Sans cibler personne',
+  },
+  HOUSE: {
+    label: 'Loyer du lot',
+    value: `+${HOUSE_RENT_BONUS} M`,
+    note: 'Sur un lot complet',
+  },
+  HOTEL: {
+    label: 'Loyer du lot',
+    value: `+${HOTEL_RENT_BONUS} M`,
+    note: 'Maison déjà posée',
+  },
+  JUST_SAY_NO: { label: 'Tu annules', value: '1 action', note: 'Un autre Refus la rétablit' },
+  DOUBLE_RENT: { label: 'Loyer réclamé', value: '×2', note: 'Coûte une action de plus' },
+};
+
+/**
+ * Comment se compte un lot. Écrire « 1 carte » sur une gare sonne faux, et
+ * « 2 compagnies » se lit tout seul.
+ */
+export function unitOf(color: Color): { one: string; many: string } {
+  if (color === 'black') return { one: 'gare', many: 'gares' };
+  if (color === 'turquoise') return { one: 'compagnie', many: 'compagnies' };
+  return { one: 'carte', many: 'cartes' };
+}
 
 /** Ce que fait la carte, tel qu'imprimé dessus. */
 export const ACTION_RULES: Record<ActionKind, string> = {
