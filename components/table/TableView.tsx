@@ -267,21 +267,29 @@ export function TableView({ view }: { view: GameView }) {
         </div>
 
         {/* Ma main : posée sur le tapis, sans cadre. --------------------- */}
-        <footer style={{ height: bands.hand }} className="safe-b shrink-0 px-2 pb-1">
+        {/* `relative` + éventail ancré en bas : l'arc peut dépasser au-dessus
+            du pied, dans le tapis vide, au lieu d'y réserver de la hauteur. */}
+        <footer
+          style={{ height: bands.hand }}
+          className="safe-b relative shrink-0 px-2 pb-1"
+        >
+          {/* Au-dessus de l'éventail, qui occupe désormais tout le pied. */}
           {ctl.error && (
             <button
               onClick={ctl.clearError}
-              className="mx-auto mb-1 block max-w-full truncate rounded-[0.3rem] border-2 border-ink bg-mono-red px-2 py-0.5 text-xs font-bold text-cream"
+              className="absolute -top-7 left-1/2 z-20 max-w-[90%] -translate-x-1/2 truncate rounded-[0.3rem] border-2 border-ink bg-mono-red px-2 py-0.5 text-xs font-bold text-cream shadow-card"
             >
               {ctl.error}
             </button>
           )}
-          <HandFan
-            cards={me.hand}
-            cardWidth={scale.hand}
-            ctl={ctl}
-            playable={playable}
-          />
+          <div className="absolute inset-x-2 bottom-1">
+            <HandFan
+              cards={me.hand}
+              cardWidth={scale.hand}
+              ctl={ctl}
+              playable={playable}
+            />
+          </div>
         </footer>
       </main>
 

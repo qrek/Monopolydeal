@@ -15,11 +15,16 @@ import { useEffect, useRef, useState } from 'react';
 import { CardFace } from '@/components/cards/CardFace';
 import type { PlayController } from '@/components/play/usePlayController';
 import type { CardId } from '@/lib/engine';
+import {
+  FAN_LIFT,
+  FAN_TILT,
+  fanBottomBleed,
+  fanHeight,
+  fanSideBleed,
+} from '@/lib/ui/layout';
 import { destinationsFor } from '@/lib/ui/legal';
 import { SPRING } from '@/lib/ui/motion';
 
-const MAX_TILT = 6;
-const MAX_LIFT = 10;
 const MIN_STEP_RATIO = 0.3;
 
 function useAvailableWidth(): [React.RefObject<HTMLDivElement | null>, number] {
@@ -54,22 +59,17 @@ export function HandFan({
   const [ref, available] = useAvailableWidth();
   const count = cards.length;
 
-  const cardHeight = Math.round(cardWidth * 1.4);
-  const rad = (MAX_TILT * Math.PI) / 180;
   // Une carte inclinée déborde de sa boîte : on réserve la marge de chaque côté.
-  const sideBleed = Math.ceil(
-    (cardHeight * Math.sin(rad) + cardWidth * Math.cos(rad) - cardWidth) / 2,
-  );
-  const topBleed = Math.ceil(
-    cardWidth * Math.sin(rad) + cardHeight * Math.cos(rad) - cardHeight,
-  );
-
+  const sideBleed = fanSideBleed(cardWidth);
   const usable = Math.max(cardWidth, available - 2 * sideBleed);
   const maxStep = cardWidth * 0.66;
   const fitted = count > 1 ? (usable - cardWidth) / (count - 1) : maxStep;
   const step = Math.max(cardWidth * MIN_STEP_RATIO, Math.min(maxStep, fitted));
   const spread = cardWidth + step * Math.max(0, count - 1);
-  const height = cardHeight + topBleed + MAX_LIFT;
+  const height = fanHeight(cardWidth);
+  // Les cartes reposent au-dessus de la réserve basse : leurs coins pivotés
+  // descendent dedans au lieu de sortir de l'écran.
+  const baseline = fanBottomBleed(cardWidth);
 
   return (
     <div ref={ref} className="w-full">
@@ -95,16 +95,18 @@ export function HandFan({
                   animate={{
                     rotateY: 0,
                     opacity: ctl.drag?.cardId === id ? 0.25 : 1,
-                    rotate: offset * MAX_TILT,
-                    y: -(1 - Math.abs(offset)) * MAX_LIFT - (chosen ? 20 : 0),
+                    rotate: offset * FAN_TILT,
+                    // Parabole et non pente : le sommet est arrondi, comme
+                    // des cartes tenues en main plutôt qu'alignées sur un toit.
+                    y: -(1 - offset * offset) * FAN_LIFT - (chosen ? 20 : 0),
                     scale: chosen ? 1.06 : 1,
                   }}
                   exit={{ opacity: 0, y: -28, scale: 0.88 }}
                   transition={SPRING}
-                  className={`absolute bottom-0 origin-bottom touch-none will-change-transform ${
+                  className={`absolute origin-bottom touch-none will-change-transform ${
                     usableCard ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
                   }`}
-                  style={{ left: i * step, zIndex: chosen ? 100 : i }}
+                  style={{ left: i * step, bottom: baseline, zIndex: chosen ? 100 : i }}
                   onPointerDown={(e) => {
                     if (usableCard) ctl.beginDrag(id, e);
                   }}

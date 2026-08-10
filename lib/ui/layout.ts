@@ -20,6 +20,41 @@ const MIN_STACK_STEP = 4;
 /** Un lot de Gares compte 4 cartes : c'est lui qui fixe la hauteur d'une rangée. */
 const MAX_STACK_GAPS = 3;
 
+// --- Géométrie de l'éventail ------------------------------------------------
+// Partagée entre la main (qui la dessine) et le pied (qui la loge) : deux
+// valeurs séparées finissaient par diverger et réservaient du vide sous mes
+// propriétés.
+
+/** Inclinaison de la carte la plus excentrée, en degrés. */
+export const FAN_TILT = 10;
+/** Relèvement de la carte centrale : c'est lui qui creuse l'arc. */
+export const FAN_LIFT = 15;
+
+/**
+ * Débordement vers le BAS d'une carte pivotée autour de son bord inférieur :
+ * ses coins bas descendent sous la ligne de base. Sans cette réserve, l'arc
+ * poussait les coins des cartes de bord hors de l'écran.
+ */
+export function fanBottomBleed(cardWidth: number): number {
+  const rad = (FAN_TILT * Math.PI) / 180;
+  return Math.ceil((cardWidth / 2) * Math.sin(rad));
+}
+
+/** Débordement d'une carte inclinée, de chaque côté. */
+export function fanSideBleed(cardWidth: number): number {
+  const h = cardWidth * CARD_RATIO;
+  const rad = (FAN_TILT * Math.PI) / 180;
+  return Math.ceil((h * Math.sin(rad) + cardWidth * Math.cos(rad) - cardWidth) / 2);
+}
+
+/** Hauteur réelle de l'éventail, arc et inclinaison compris. */
+export function fanHeight(cardWidth: number): number {
+  const h = Math.round(cardWidth * CARD_RATIO);
+  const rad = (FAN_TILT * Math.PI) / 180;
+  const topBleed = Math.ceil(cardWidth * Math.sin(rad) + h * Math.cos(rad) - h);
+  return h + topBleed + FAN_LIFT + fanBottomBleed(cardWidth);
+}
+
 export interface TableScale {
   /** Cartes de la main, en bas. */
   hand: number;
@@ -73,9 +108,12 @@ const GAPS = 10;
  * lit que des couleurs et un compteur.
  */
 export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
-  const cardH = Math.round(scale.hand * CARD_RATIO);
-  // cartes + relèvement de l'éventail + débordement d'inclinaison + marges
-  const hand = cardH + 36;
+  // Le pied ne loge que la carte et une petite marge : l'arc de l'éventail
+  // déborde vers le HAUT, dans le tapis vide au-dessus de la main. Réserver sa
+  // hauteur complète ici repoussait mes propriétés et ma banque loin des cartes
+  // pour rien.
+  const hand =
+    Math.round(scale.hand * CARD_RATIO) + fanBottomBleed(scale.hand) + 12;
 
   const mineStack =
     Math.round(scale.mine * CARD_RATIO) + MAX_STACK_GAPS * MIN_STACK_STEP;
