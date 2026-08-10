@@ -16,6 +16,7 @@ import { CardFace } from '@/components/cards/CardFace';
 import type { PlayController } from '@/components/play/usePlayController';
 import type { CardId } from '@/lib/engine';
 import { destinationsFor } from '@/lib/ui/legal';
+import { SPRING } from '@/lib/ui/motion';
 
 const MAX_TILT = 6;
 const MAX_LIFT = 10;
@@ -86,32 +87,29 @@ export function HandFan({
                   key={id}
                   ref={(el) => ctl.registerCard(id, el)}
                   layout
-                  // Une carte piochée arrive en se retournant.
-                  initial={{ rotateY: 90, opacity: 0, y: 20 }}
-                  animate={{ rotateY: 0, opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -24, scale: 0.9 }}
-                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-                  className={`absolute bottom-0 origin-bottom touch-none ${
-                    usableCard ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
-                  } ${ctl.drag?.cardId === id ? 'opacity-30' : ''}`}
-                  style={{
-                    left: i * step,
-                    zIndex: chosen ? 100 : i,
-                    transform: `rotate(${offset * MAX_TILT}deg) translateY(${
-                      -(1 - Math.abs(offset)) * MAX_LIFT - (chosen ? 18 : 0)
-                    }px)`,
+                  // L'inclinaison et le relèvement passent par Framer Motion et
+                  // non par `style.transform` : Motion écrit sur la même
+                  // propriété et remettait l'éventail à plat dès la fin de
+                  // l'animation d'entrée.
+                  initial={{ rotateY: 90, opacity: 0, y: 26, rotate: 0 }}
+                  animate={{
+                    rotateY: 0,
+                    opacity: ctl.drag?.cardId === id ? 0.25 : 1,
+                    rotate: offset * MAX_TILT,
+                    y: -(1 - Math.abs(offset)) * MAX_LIFT - (chosen ? 20 : 0),
+                    scale: chosen ? 1.06 : 1,
                   }}
+                  exit={{ opacity: 0, y: -28, scale: 0.88 }}
+                  transition={SPRING}
+                  className={`absolute bottom-0 origin-bottom touch-none will-change-transform ${
+                    usableCard ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+                  }`}
+                  style={{ left: i * step, zIndex: chosen ? 100 : i }}
                   onPointerDown={(e) => {
                     if (usableCard) ctl.beginDrag(id, e);
                   }}
                 >
-                  <div
-                    className={
-                      chosen
-                        ? 'rounded-card ring-4 ring-mono-red transition-shadow duration-200'
-                        : ''
-                    }
-                  >
+                  <div className={chosen ? 'rounded-card ring-4 ring-mono-red' : ''}>
                     <CardFace cardId={id} width={cardWidth} />
                   </div>
                 </motion.div>

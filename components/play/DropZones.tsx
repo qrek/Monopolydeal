@@ -10,10 +10,13 @@
 
 'use client';
 
+import { motion } from 'framer-motion';
+
 import { CardFace } from '@/components/cards/CardFace';
 import type { PlayController } from '@/components/play/usePlayController';
 import type { CardId } from '@/lib/engine';
 import { DESTINATION_LABEL, destinationsFor, type Destination } from '@/lib/ui/legal';
+import { SPRING } from '@/lib/ui/motion';
 
 /**
  * Enveloppe une zone de la table. Tant qu'aucune carte n'est en main, elle est
@@ -70,21 +73,21 @@ export function Zone({
   );
 }
 
-/** La carte qui suit le pointeur pendant un glisser. */
+/**
+ * La carte qui suit le pointeur pendant un glisser. Elle grossit et se redresse
+ * au-dessus d'une zone valide : c'est le seul retour qui dise « lâche ici ».
+ */
 export function DragLayer({ ctl, width }: { ctl: PlayController; width: number }) {
   const drag = ctl.drag;
   if (!drag) return null;
   return (
-    <div
-      className="pointer-events-none fixed z-[70] shadow-drag"
-      style={{
-        left: drag.x,
-        top: drag.y,
-        transform: `translate(-50%, -50%) rotate(-4deg) scale(${drag.over ? 1.06 : 1})`,
-        transition: 'transform 160ms ease-out',
-      }}
+    <motion.div
+      className="pointer-events-none fixed z-[70] shadow-drag will-change-transform"
+      style={{ left: drag.x, top: drag.y, x: '-50%', y: '-50%' }}
+      animate={{ rotate: drag.over ? 0 : -5, scale: drag.over ? 1.1 : 1 }}
+      transition={SPRING}
     >
       <CardFace cardId={drag.cardId} width={width} />
-    </div>
+    </motion.div>
   );
 }

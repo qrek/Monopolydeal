@@ -1,0 +1,275 @@
+/**
+ * Ce qui donne à la table son épaisseur de jeu vidéo : on ne se contente pas de
+ * changer l'état, on le raconte au moment où il change.
+ *
+ * Trois retours, tous nés du même log d'événements du moteur :
+ *  - le bandeau de tour, qui dit à qui la main passe ;
+ *  - la révélation du coup, qui montre au centre la carte qu'un adversaire vient
+ *    de jouer — sans elle, leurs actions n'existaient que dans le journal ;
+ *  - les montants flottants, qui rendent une dette physique.
+ *
+ * Tout est purement décoratif : rien ici ne pilote le jeu, et
+ * `prefers-reduced-motion` supprime l'ensemble sans rien casser.
+ */
+
+'use client';
+
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+
+import { CardFace } from '@/components/cards/CardFace';
+import { Wordmark } from '@/components/brand/Wordmark';
+import { ACTIONS, type CardId, type GameEvent } from '@/lib/engine';
+import { CUE_MS, EASE_OUT, FLOAT_MS, TURN_BANNER_MS } from '@/lib/ui/motion';
+
+/** Le coup à montrer au centre de la table. */
+interface Cue {
+  id: number;
+  cardId: CardId | null;
+  title: string;
+  subtitle: string;
+  tone: 'neutral' | 'hostile';
+}
+
+interface Float {
+  id: number;
+  text: string;
+  gain: boolean;
+}
+
+/** Événements arrivés depuis le dernier rendu. */
+function useFreshEvents(events: GameEvent[]): GameEvent[] {
+  const seen = useRef<number | null>(null);
+  const [fresh, setFresh] = useState<GameEvent[]>([]);
+
+  useEffect(() => {
+    const last = events[events.length - 1];
+    if (!last) return;
+    // Premier rendu : on ne rejoue pas l'historique, on s'y accroche.
+    if (seen.current === null) {
+      seen.current = last.seq;
+      return;
+    }
+    const since = seen.current;
+    const news = events.filter((e) => e.seq > since);
+    if (news.length === 0) return;
+    seen.current = last.seq;
+    setFresh(news);
+  }, [events]);
+
+  return fresh;
+}
+
+export function TableFeedback({
+  events,
+  viewerId,
+  nameOf,
+  winnerId,
+  handWidth,
+}: {
+  events: GameEvent[];
+  viewerId: string;
+  nameOf: (id: string) => string;
+  winnerId: string | null;
+  handWidth: number;
+}) {
+  const reduced = useReducedMotion();
+  const fresh = useFreshEvents(events);
+  const [cue, setCue] = useState<Cue | null>(null);
+  const [turn, setTurn] = useState<{ id: number; mine: boolean; name: string } | null>(null);
+  const [floats, setFloats] = useState<Float[]>([]);
+  const seq = useRef(0);
+
+  // `nameOf` est reconstruit à chaque rafraîchissement de la vue. S'il figurait
+  // dans les dépendances, l'effet rejouerait le même lot d'événements à chaque
+  // changement d'état — et le coup d'un adversaire serait ré-annoncé à tout
+  // propos. On le lit donc par référence : seul un NOUVEL événement déclenche.
+  const nameRef = useRef(nameOf);
+  nameRef.current = nameOf;
+
+  useEffect(() => {
+    if (fresh.length === 0 || reduced) return;
+    const who = (id: string) => (id === viewerId ? 'Toi' : nameRef.current(id));
+
+    for (const e of fresh) {
+      switch (e.t) {
+        case 'TURN_STARTED':
+          setTurn({
+            id: ++seq.current,
+            mine: e.playerId === viewerId,
+            name: nameRef.current(e.playerId),
+          });
+          break;
+        case 'ACTION_PLAYED': {
+          if (e.kind === 'PASS_GO') break;
+          const label = e.kind === 'RENT' ? 'Loyer' : ACTIONS[e.kind].label;
+          setCue({
+            id: ++seq.current,
+            cardId: e.cardId,
+            title: label,
+            subtitle:
+              e.targetIds.length > 0
+                ? `${who(e.playerId)} → ${e.targetIds.map(who).join(', ')}`
+                : who(e.playerId),
+            tone: e.targetIds.includes(viewerId) ? 'hostile' : 'neutral',
+          });
+          break;
+        }
+        case 'JUST_SAY_NO':
+          setCue({
+            id: ++seq.current,
+            cardId: e.cardId,
+            title: 'Refus catégorique',
+            subtitle: `${who(e.playerId)} → ${who(e.againstId)}`,
+            tone: e.againstId === viewerId ? 'hostile' : 'neutral',
+          });
+          break;
+        case 'CARDS_STOLEN': {
+          const stolen = e.cardIds[0];
+          setCue({
+            id: ++seq.current,
+            cardId: stolen ?? null,
+            title: e.cardIds.length > 1 ? `${e.cardIds.length} cartes volées` : 'Propriété volée',
+            subtitle: `${who(e.toId)} ← ${who(e.fromId)}`,
+            tone: e.fromId === viewerId ? 'hostile' : 'neutral',
+          });
+          break;
+        }
+        case 'PAID':
+          if (e.fromId === viewerId) {
+            setFloats((f) => [...f, { id: ++seq.current, text: `−${e.amount} M`, gain: false }]);
+          } else if (e.toId === viewerId) {
+            setFloats((f) => [...f, { id: ++seq.current, text: `+${e.amount} M`, gain: true }]);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }, [fresh, viewerId, reduced]);
+
+  // Chaque retour s'efface tout seul.
+  useEffect(() => {
+    if (!cue) return;
+    const t = setTimeout(() => setCue(null), CUE_MS);
+    return () => clearTimeout(t);
+  }, [cue]);
+
+  useEffect(() => {
+    if (!turn) return;
+    const t = setTimeout(() => setTurn(null), TURN_BANNER_MS);
+    return () => clearTimeout(t);
+  }, [turn]);
+
+  useEffect(() => {
+    if (floats.length === 0) return;
+    const t = setTimeout(() => setFloats((f) => f.slice(1)), FLOAT_MS);
+    return () => clearTimeout(t);
+  }, [floats]);
+
+  if (reduced) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[55] overflow-hidden">
+      {/* Coup joué : la carte au centre, le temps de la voir. --------------- */}
+      <AnimatePresence>
+        {cue && (
+          <motion.div
+            key={cue.id}
+            className="absolute left-1/2 top-[34%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
+            initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -18 }}
+            transition={EASE_OUT}
+          >
+            {cue.cardId && (
+              <div className="shadow-drag">
+                <CardFace cardId={cue.cardId} width={Math.round(handWidth * 0.92)} />
+              </div>
+            )}
+            <div
+              className={`rounded-card border-2 border-ink px-2.5 py-1 text-center shadow-card ${
+                cue.tone === 'hostile' ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
+              }`}
+            >
+              <p className="text-xs font-extrabold uppercase leading-none tracking-tight">
+                {cue.title}
+              </p>
+              <p className="mt-0.5 text-[0.65rem] font-bold leading-none opacity-80">
+                {cue.subtitle}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Passage de main. ---------------------------------------------------- */}
+      <AnimatePresence>
+        {turn && (
+          <motion.div
+            key={turn.id}
+            className="absolute inset-x-0 top-8"
+            initial={{ opacity: 0, x: '-100%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: '100%' }}
+            transition={EASE_OUT}
+          >
+            <div
+              className={`border-y-2 border-ink py-1.5 text-center shadow-panel ${
+                turn.mine ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
+              }`}
+            >
+              <p className="text-lg font-extrabold uppercase leading-none tracking-tight">
+                {turn.mine ? 'À toi de jouer' : `Tour de ${turn.name}`}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Montants encaissés ou perdus. --------------------------------------- */}
+      <AnimatePresence>
+        {floats.map((f, i) => (
+          <motion.p
+            key={f.id}
+            className={`absolute right-8 top-[40%] text-3xl font-extrabold tabular-nums drop-shadow-[0_2px_0_rgba(20,20,20,0.35)] ${
+              f.gain ? 'text-[#0F7A3D]' : 'text-mono-red'
+            }`}
+            initial={{ opacity: 0, y: 0, scale: 0.7 }}
+            animate={{ opacity: 1, y: -60 - i * 26, scale: 1.1 }}
+            exit={{ opacity: 0, y: -96 - i * 26 }}
+            transition={EASE_OUT}
+          >
+            {f.text}
+          </motion.p>
+        ))}
+      </AnimatePresence>
+
+      {/* Fin de partie. ------------------------------------------------------ */}
+      <AnimatePresence>
+        {winnerId && (
+          <motion.div
+            className="absolute inset-0 grid place-items-center bg-ink/70"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={EASE_OUT}
+          >
+            <motion.div
+              className="panel flex flex-col items-center gap-2 px-8 py-5"
+              initial={{ scale: 0.7, rotate: -4 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 20 }}
+            >
+              <Wordmark size={22} />
+              <p className="text-2xl font-extrabold uppercase leading-none tracking-tight">
+                {winnerId === viewerId ? 'Tu gagnes !' : `${nameOf(winnerId)} gagne`}
+              </p>
+              <p className="text-sm text-ink-soft">Trois lots complets.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

@@ -124,6 +124,28 @@ mise en page s'y adapte sans y être optimisée.
 Vérifié sans débordement ni défilement parasite à 740×360, 812×375, 844×390 et
 932×430.
 
+### Retours de jeu
+
+Le jeu ne se contente pas de changer d'état : il le raconte au moment où il
+change (`components/table/TableFeedback.tsx`, alimenté par le même log
+d'événements que le journal).
+
+- **Révélation du coup** : la carte qu'un adversaire vient de jouer apparaît au
+  centre du tapis, 1,5 s. Sans elle, les actions des autres n'existaient que
+  dans le journal latéral — on subissait un vol sans jamais le voir.
+- **Bandeau de tour** : « À toi de jouer » balaie l'écran sous le bandeau de
+  marque. Placé en haut et non au centre, il peut coexister avec la révélation.
+- **Montants flottants** : `−5 M` en rouge, `+5 M` en vert, au-dessus de la
+  banque d'où part ou arrive la somme.
+- **Fin de partie** : voile sombre et carton de victoire.
+
+Deux familles de réglages seulement (`lib/ui/motion.ts`) : un ressort pour ce
+que le doigt manipule — la main, la carte qu'on traîne, les pastilles d'action —
+et une durée fixe pour ce que le jeu annonce. Rien n'anime autre chose que
+`transform` et `opacity`, les deux propriétés que le compositeur traite sans
+repasser par la mise en page. `prefers-reduced-motion` supprime tous les retours
+sans rien casser.
+
 ### Direction artistique
 
 Celle du plateau Monopoly : vert pâle en fond, rouge de la boîte en accent,

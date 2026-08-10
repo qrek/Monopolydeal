@@ -34,6 +34,7 @@ import { OpponentSeat } from '@/components/table/OpponentSeat';
 import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { RotateHint } from '@/components/table/RotateHint';
 import { SetPips } from '@/components/table/SetPips';
+import { TableFeedback } from '@/components/table/TableFeedback';
 import { Button } from '@/components/ui/Button';
 import { useGameStore } from '@/lib/client/store';
 import {
@@ -305,6 +306,14 @@ export function TableView({ view }: { view: GameView }) {
       )}
 
       {/* Couches interactives --------------------------------------------- */}
+      <TableFeedback
+        events={state.events}
+        viewerId={view.viewerId}
+        nameOf={nameOf}
+        winnerId={state.winnerId}
+        handWidth={scale.hand}
+      />
+
       <DragLayer ctl={ctl} width={scale.hand} />
       <FlightLayer ctl={ctl} width={scale.hand} />
 

@@ -1,9 +1,17 @@
 /**
  * Compteur d'actions : trois pastilles qui s'éteignent. C'est l'information la
  * plus consultée d'un tour, elle reste grande et toujours au même endroit.
+ *
+ * Une pastille qui s'éteint le fait en claquant — c'est la seule confirmation
+ * qu'un coup a bien été compté.
  */
 
+'use client';
+
+import { motion } from 'framer-motion';
+
 import { MAX_ACTIONS_PER_TURN } from '@/lib/engine';
+import { SPRING } from '@/lib/ui/motion';
 
 interface ActionPipsProps {
   played: number;
@@ -22,17 +30,14 @@ export function ActionPips({ played, active = true }: ActionPipsProps) {
       {Array.from({ length: MAX_ACTIONS_PER_TURN }, (_, i) => {
         const spent = i < played;
         return (
-          <span
+          <motion.span
             key={i}
             aria-hidden
-            className={[
-              'size-3.5 rounded-full border-2 border-ink transition-all duration-200',
-              spent
-                ? 'scale-90 bg-transparent opacity-40'
-                : active
-                  ? 'bg-mono-red'
-                  : 'bg-ink/25',
-            ].join(' ')}
+            className={`size-3.5 rounded-full border-2 border-ink ${
+              spent ? 'bg-transparent' : active ? 'bg-mono-red' : 'bg-ink/25'
+            }`}
+            animate={{ scale: spent ? 0.72 : 1, opacity: spent ? 0.4 : 1 }}
+            transition={SPRING}
           />
         );
       })}
