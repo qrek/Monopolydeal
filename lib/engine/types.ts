@@ -1,0 +1,410 @@
+/**
+ * Lotissime — types du moteur de jeu.
+ *
+ * Ce fichier est du TypeScript pur : aucune dépendance à React, Supabase, ou
+ * quoi que ce soit d'autre. Le moteur est un réducteur déterministe
+ * `reduce(state, action) => state`.
+ */
+
+// ---------------------------------------------------------------------------
+// Couleurs & cartes
+// ---------------------------------------------------------------------------
+
+export type Color =
+  | 'brown' // Marron
+  | 'lightblue' // Bleu ciel
+  | 'pink' // Rose
+  | 'orange' // Orange
+  | 'red' // Rouge
+  | 'yellow' // Jaune
+  | 'green' // Vert
+  | 'darkblue' // Bleu nuit
+  | 'black' // Noir — transports
+  | 'turquoise'; // Turquoise — services
+
+export type CardId = string;
+
+export type CardKind =
+  | 'MONEY' // carte Argent
+  | 'PROPERTY' // carte Propriété classique
+  | 'WILD' // Joker bicolore
+  | 'WILD_ANY' // Joker universel
+  | 'ACTION' // carte Action
+  | 'RENT'; // carte Loyer
+
+export type ActionKind =
+  | 'DEAL_BREAKER' // Coup de filet
+  | 'SLY_DEAL' // Affaire douteuse
+  | 'FORCED_DEAL' // Échange forcé
+  | 'DEBT_COLLECTOR' // Recouvrement
+  | 'BIRTHDAY' // Anniversaire
+  | 'PASS_GO' // Passe départ
+  | 'HOUSE' // Maison
+  | 'HOTEL' // Hôtel
+  | 'JUST_SAY_NO' // Refus catégorique
+  | 'DOUBLE_RENT'; // Double loyer
+
+interface CardBase {
+  id: CardId;
+  /** Valeur banque en M. */
+  value: number;
+  label: string;
+}
+
+export interface MoneyCard extends CardBase {
+  kind: 'MONEY';
+}
+
+export interface PropertyCard extends CardBase {
+  kind: 'PROPERTY';
+  color: Color;
+}
+
+/** Joker bicolore : appartient à l'une des deux couleurs imprimées. */
+export interface WildCard extends CardBase {
+  kind: 'WILD';
+  colors: [Color, Color];
+}
+
+/** Joker universel : n'importe quelle couleur, 0M, jamais jouable en argent. */
+export interface WildAnyCard extends CardBase {
+  kind: 'WILD_ANY';
+}
+
+export interface ActionCard extends CardBase {
+  kind: 'ACTION';
+  action: ActionKind;
+}
+
+/** Carte Loyer : `colors` vaut les 2 couleurs imprimées, ou les 10 pour le loyer universel. */
+export interface RentCard extends CardBase {
+  kind: 'RENT';
+  colors: Color[];
+  universal: boolean;
+}
+
+export type Card =
+  | MoneyCard
+  | PropertyCard
+  | WildCard
+  | WildAnyCard
+  | ActionCard
+  | RentCard;
+
+// ---------------------------------------------------------------------------
+// État
+// ---------------------------------------------------------------------------
+
+/**
+ * Un lot est un groupe *distinct* de cartes d'une même couleur.
+ * Un joueur peut posséder plusieurs lots de la même couleur (cf. cas limite 3) :
+ * on ne modélise donc jamais les propriétés comme un compteur par couleur.
+ */
+export interface PropertyGroup {
+  id: string;
+  color: Color;
+  cards: CardId[];
+  /** id de la carte Maison posée, ou null. */
+  house: CardId | null;
+  /** id de la carte Hôtel posée, ou null. */
+  hotel: CardId | null;
+}
+
+export interface PlayerState {
+  id: string;
+  name: string;
+  connected: boolean;
+  hand: CardId[];
+  bank: CardId[];
+  groups: PropertyGroup[];
+}
+
+export type Phase =
+  | 'LOBBY'
+  | 'DRAW'
+  | 'PLAY'
+  | 'RESOLVING_ACTION'
+  | 'AWAITING_PAYMENT'
+  | 'DISCARD'
+  | 'END_TURN'
+  | 'GAME_OVER';
+
+export type PendingKind =
+  | 'DEAL_BREAKER'
+  | 'SLY_DEAL'
+  | 'FORCED_DEAL'
+  | 'DEBT_COLLECTOR'
+  | 'BIRTHDAY'
+  | 'RENT';
+
+export type TargetStatus =
+  | 'AWAITING_RESPONSE'
+  | 'CANCELLED'
+  | 'AWAITING_PAYMENT'
+  | 'DONE';
+
+/**
+ * Un adversaire visé par une action. Chaque cible a sa propre chaîne de Refus
+ * et sa propre dette : sur Anniversaire, chacun répond et paie indépendamment.
+ */
+export interface PendingTarget {
+  playerId: string;
+  status: TargetStatus;
+  /** Cartes Refus catégorique jouées, dans l'ordre. Longueur impaire ⇒ action annulée. */
+  jsnChain: CardId[];
+  /** Joueur à qui c'est le tour de répondre (jouer un Refus ou accepter). */
+  responderId: string;
+  /** Montant dû, une fois l'action résolue (0 pour les actions de vol). */
+  debt: number;
+  /** Montant déjà versé. */
+  paid: number;
+}
+
+export interface PendingAction {
+  kind: PendingKind;
+  sourcePlayerId: string;
+  targets: PendingTarget[];
+  /** Coup de filet : lot visé. */
+  groupId?: string;
+  /** Affaire douteuse / Échange forcé : carte visée chez l'adversaire. */
+  targetCardId?: CardId;
+  /** Échange forcé : ma carte donnée en échange. */
+  ownCardId?: CardId;
+  /** Loyer : couleur réclamée. */
+  color?: Color;
+  /** Loyer : montant unitaire calculé au moment où la carte est jouée. */
+  amount?: number;
+}
+
+export interface GameState {
+  id: string;
+  phase: Phase;
+  players: PlayerState[];
+  /** Index dans `players` du joueur dont c'est le tour. */
+  turnIndex: number;
+  /** Nombre d'actions consommées dans le tour courant (max 3). */
+  actionsPlayed: number;
+  /** Pioche, face cachée. Le sommet est l'index 0. */
+  deck: CardId[];
+  discard: CardId[];
+  seed: string;
+  /** Nombre de mélanges déjà effectués — rend les remélanges déterministes. */
+  shuffleCount: number;
+  pending: PendingAction | null;
+  winnerId: string | null;
+  /** Journal append-only, alimente l'UI et le debug. */
+  events: GameEvent[];
+  /** Compteur monotone servant à générer les ids de lots. */
+  nextGroupId: number;
+}
+
+// ---------------------------------------------------------------------------
+// Intentions (actions envoyées par le client)
+// ---------------------------------------------------------------------------
+
+export type GameAction =
+  | { type: 'START_GAME' }
+  | { type: 'DRAW'; playerId: string }
+  | { type: 'PLAY_MONEY'; playerId: string; cardId: CardId }
+  | {
+      type: 'PLAY_PROPERTY';
+      playerId: string;
+      cardId: CardId;
+      /** Lot cible existant. Sinon `color` + éventuellement `newGroup`. */
+      groupId?: string;
+      color?: Color;
+      newGroup?: boolean;
+    }
+  | {
+      /** Permutation d'un joker déjà posé — gratuite, ne consomme pas d'action. */
+      type: 'MOVE_WILD';
+      playerId: string;
+      cardId: CardId;
+      groupId?: string;
+      color?: Color;
+      newGroup?: boolean;
+    }
+  | { type: 'PLAY_BUILDING'; playerId: string; cardId: CardId; groupId: string }
+  | { type: 'PLAY_PASS_GO'; playerId: string; cardId: CardId }
+  | {
+      type: 'PLAY_DEAL_BREAKER';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+      targetGroupId: string;
+    }
+  | {
+      type: 'PLAY_SLY_DEAL';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+      targetCardId: CardId;
+    }
+  | {
+      type: 'PLAY_FORCED_DEAL';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+      targetCardId: CardId;
+      ownCardId: CardId;
+    }
+  | {
+      type: 'PLAY_DEBT_COLLECTOR';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+    }
+  | { type: 'PLAY_BIRTHDAY'; playerId: string; cardId: CardId }
+  | {
+      type: 'PLAY_RENT';
+      playerId: string;
+      cardId: CardId;
+      color: Color;
+      targetPlayerId: string;
+      /** Cartes Double loyer jouées avec le loyer. Chacune coûte une action de plus. */
+      doubleCardIds?: CardId[];
+    }
+  | {
+      type: 'RESPOND_JUST_SAY_NO';
+      playerId: string;
+      cardId: CardId;
+      /** Désambiguïse quand plusieurs cibles attendent ma réponse (Anniversaire). */
+      againstPlayerId?: string;
+    }
+  | { type: 'RESPOND_ACCEPT'; playerId: string; againstPlayerId?: string }
+  | { type: 'PAY'; playerId: string; cardIds: CardId[] }
+  | { type: 'DISCARD'; playerId: string; cardIds: CardId[] }
+  | { type: 'END_TURN'; playerId: string }
+  | { type: 'ADVANCE_TURN' }
+  | { type: 'SET_CONNECTED'; playerId: string; connected: boolean };
+
+export type GameActionType = GameAction['type'];
+
+// ---------------------------------------------------------------------------
+// Événements (journal de partie)
+// ---------------------------------------------------------------------------
+
+export type GameEvent =
+  | { seq: number; t: 'GAME_STARTED'; seed: string; playerIds: string[] }
+  | { seq: number; t: 'DREW'; playerId: string; count: number }
+  | { seq: number; t: 'DECK_RESHUFFLED'; count: number }
+  | { seq: number; t: 'BANKED'; playerId: string; cardId: CardId }
+  | {
+      seq: number;
+      t: 'PROPERTY_PLACED';
+      playerId: string;
+      cardId: CardId;
+      groupId: string;
+      color: Color;
+    }
+  | {
+      seq: number;
+      t: 'WILD_MOVED';
+      playerId: string;
+      cardId: CardId;
+      groupId: string;
+      color: Color;
+    }
+  | {
+      seq: number;
+      t: 'BUILDING_PLACED';
+      playerId: string;
+      cardId: CardId;
+      groupId: string;
+      building: 'HOUSE' | 'HOTEL';
+    }
+  | {
+      seq: number;
+      t: 'BUILDING_RETURNED';
+      playerId: string;
+      cardId: CardId;
+      reason: 'SET_BROKEN';
+    }
+  | {
+      seq: number;
+      t: 'ACTION_PLAYED';
+      playerId: string;
+      cardId: CardId;
+      kind: PendingKind | 'PASS_GO';
+      targetIds: string[];
+      amount?: number;
+      color?: Color;
+    }
+  | {
+      seq: number;
+      t: 'JUST_SAY_NO';
+      playerId: string;
+      cardId: CardId;
+      againstId: string;
+    }
+  | { seq: number; t: 'ACTION_CANCELLED'; targetId: string }
+  | {
+      seq: number;
+      t: 'DEBT_CREATED';
+      fromId: string;
+      toId: string;
+      amount: number;
+    }
+  | {
+      seq: number;
+      t: 'PAID';
+      fromId: string;
+      toId: string;
+      cardIds: CardId[];
+      amount: number;
+    }
+  | { seq: number; t: 'DEBT_FORGIVEN'; fromId: string; toId: string }
+  | {
+      seq: number;
+      t: 'CARDS_STOLEN';
+      fromId: string;
+      toId: string;
+      cardIds: CardId[];
+    }
+  | {
+      seq: number;
+      t: 'CARDS_SWAPPED';
+      aId: string;
+      bId: string;
+      aCardId: CardId;
+      bCardId: CardId;
+    }
+  | { seq: number; t: 'DISCARDED'; playerId: string; cardIds: CardId[] }
+  | { seq: number; t: 'TURN_ENDED'; playerId: string }
+  | { seq: number; t: 'TURN_STARTED'; playerId: string }
+  | { seq: number; t: 'GAME_OVER'; winnerId: string }
+  | { seq: number; t: 'CONNECTION'; playerId: string; connected: boolean };
+
+// ---------------------------------------------------------------------------
+// Erreurs
+// ---------------------------------------------------------------------------
+
+export type RuleErrorCode =
+  | 'WRONG_PHASE'
+  | 'NOT_YOUR_TURN'
+  | 'NO_ACTIONS_LEFT'
+  | 'CARD_NOT_IN_HAND'
+  | 'CARD_NOT_FOUND'
+  | 'ILLEGAL_CARD'
+  | 'ILLEGAL_TARGET'
+  | 'ILLEGAL_GROUP'
+  | 'SET_COMPLETE'
+  | 'SET_INCOMPLETE'
+  | 'GROUP_FULL'
+  | 'NO_SUCH_PLAYER'
+  | 'INSUFFICIENT_PAYMENT'
+  | 'NOT_A_RESPONDER'
+  | 'BAD_PLAYER_COUNT'
+  | 'GAME_OVER'
+  | 'MUST_DISCARD'
+  | 'BREAKS_BUILT_SET'
+  | 'NO_RENT_FOR_COLOR';
+
+export class RuleError extends Error {
+  code: RuleErrorCode;
+  constructor(code: RuleErrorCode, message?: string) {
+    super(message ?? code);
+    this.name = 'RuleError';
+    this.code = code;
+  }
+}
