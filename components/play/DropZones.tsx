@@ -1,9 +1,11 @@
 /**
- * Les trois destinations d'une carte : Banque, Mes propriétés, Jouer l'action.
+ * Les destinations d'une carte ne sont plus trois boîtes alignées quelque part :
+ * ce sont les endroits eux-mêmes. Mes propriétés à gauche, ma banque à droite,
+ * le tapis au centre pour jouer une action. On pousse la carte vers l'endroit
+ * où elle va vraiment.
  *
- * Elles servent aux deux gestes. À la souris on y traîne la carte ; au doigt on
- * tape la carte puis la zone — le glisser reste possible mais n'est jamais
- * obligatoire, un pouce n'a pas à viser au pixel près.
+ * Deux gestes mènent au même résultat : traîner la carte, ou la taper puis
+ * taper la zone — un pouce n'a pas à viser au pixel près.
  */
 
 'use client';
@@ -13,62 +15,56 @@ import type { PlayController } from '@/components/play/usePlayController';
 import type { CardId } from '@/lib/engine';
 import { DESTINATION_LABEL, destinationsFor, type Destination } from '@/lib/ui/legal';
 
-const ORDER: Destination[] = ['BANK', 'PROPERTY', 'ACTION'];
-
-const HINT: Record<Destination, string> = {
-  BANK: 'Vaut sa valeur en M',
-  PROPERTY: 'Pose dans un lot',
-  ACTION: 'Déclenche son effet',
-};
-
-export function DropZones({
+/**
+ * Enveloppe une zone de la table. Tant qu'aucune carte n'est en main, elle est
+ * parfaitement transparente et laisse passer les clics (déplacer un joker, par
+ * exemple) ; dès qu'une carte est tenue, un calque de dépôt apparaît par-dessus.
+ */
+export function Zone({
   ctl,
+  dest,
   active,
-  vertical = false,
+  className = '',
+  children,
 }: {
   ctl: PlayController;
-  /** Faux hors de mon tour : les zones restent visibles mais inertes. */
+  dest: Destination;
+  /** Faux hors de mon tour : la zone reste visible mais inerte. */
   active: boolean;
-  /** En paysage, les zones s'empilent à gauche de la main. */
-  vertical?: boolean;
+  className?: string;
+  children: React.ReactNode;
 }) {
   const held = ctl.drag?.cardId ?? ctl.selected;
-  const allowed = held ? destinationsFor(held) : [];
+  const usable = active && Boolean(held) && destinationsFor(held as CardId).includes(dest);
+  const hovered = ctl.drag?.over === dest;
 
   return (
-    <div className={`flex gap-1 ${vertical ? 'h-full flex-col' : 'h-full'}`}>
-      {ORDER.map((d) => {
-        const usable = active && Boolean(held) && allowed.includes(d);
-        const hovered = ctl.drag?.over === d;
-        return (
-          <button
-            key={d}
-            ref={(el) => ctl.registerZone(d, el)}
-            disabled={!usable}
-            onClick={() => held && usable && ctl.play(held, d)}
-            className={[
-              // min-h-0 : sans lui, le texte impose une hauteur plancher et la
-              // troisième zone passe sous le bord du pied.
-              'flex min-h-0 flex-1 flex-col items-center justify-center rounded-panel border-2 border-dashed px-1 py-1 text-center transition-all duration-200',
-              hovered
-                ? 'scale-[1.03] border-solid border-mono-red bg-mono-red/15'
-                : usable
-                  ? 'border-ink/70 bg-cream/80 animate-pulse-ring'
-                  : 'border-ink/20 bg-cream/30 opacity-60',
-            ].join(' ')}
+    <div
+      ref={(el) => ctl.registerZone(dest, el)}
+      className={`relative rounded-panel transition-all duration-200 ${
+        hovered
+          ? 'bg-mono-red/15 ring-2 ring-mono-red'
+          : usable
+            ? 'ring-2 ring-dashed ring-ink/40'
+            : ''
+      } ${className}`}
+    >
+      {children}
+
+      {usable && (
+        <button
+          onClick={() => held && ctl.play(held, dest)}
+          className="absolute inset-0 z-20 grid place-items-center rounded-panel"
+        >
+          <span
+            className={`rounded-card border-2 border-ink px-2 py-1 text-[0.62rem] font-extrabold uppercase leading-none tracking-tight shadow-card transition-colors ${
+              hovered ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
+            }`}
           >
-            <span className="text-[0.62rem] font-extrabold uppercase leading-tight tracking-tight text-ink">
-              {DESTINATION_LABEL[d]}
-            </span>
-            {/* En colonne, la place manque : le libellé se suffit. */}
-            {!vertical && (
-              <span className="hidden text-[0.55rem] leading-tight text-ink-soft sm:block">
-                {HINT[d]}
-              </span>
-            )}
-          </button>
-        );
-      })}
+            {DESTINATION_LABEL[dest]}
+          </span>
+        </button>
+      )}
     </div>
   );
 }
@@ -87,7 +83,7 @@ export function DragLayer({ ctl, width }: { ctl: PlayController; width: number }
         transition: 'transform 160ms ease-out',
       }}
     >
-      <CardFace cardId={drag.cardId as CardId} width={width} />
+      <CardFace cardId={drag.cardId} width={width} />
     </div>
   );
 }

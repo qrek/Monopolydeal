@@ -68,7 +68,7 @@ export function HandFan({
   const fitted = count > 1 ? (usable - cardWidth) / (count - 1) : maxStep;
   const step = Math.max(cardWidth * MIN_STEP_RATIO, Math.min(maxStep, fitted));
   const spread = cardWidth + step * Math.max(0, count - 1);
-  const height = cardHeight + topBleed + MAX_LIFT + 10;
+  const height = cardHeight + topBleed + MAX_LIFT;
 
   return (
     <div ref={ref} className="w-full">

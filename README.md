@@ -171,11 +171,30 @@ Sobres, 200–300 ms, et neutralisées par `prefers-reduced-motion`.
 
 ### Mise en route Supabase
 
-1. Crée un projet sur supabase.com, puis exécute
-   `supabase/migrations/20260810120000_init.sql` (SQL Editor ou `supabase db push`).
-2. Active l'auth anonyme : Authentication → Providers → Anonymous sign-ins.
-3. Copie `.env.example` vers `.env.local` et remplis les 3 clés (Settings → API).
-   Sur Vercel : mêmes variables dans les réglages du projet.
+Le projet utilisé est **`mrqhesvdazroyqqcwprh`** (organisation « mechant »,
+eu-west-1). Il héberge déjà une autre application : la migration est donc
+idempotente et n'ajoute que les 4 tables du jeu, sans toucher aux tables
+existantes.
+
+Le schéma est **déjà appliqué**. Reste à faire, une seule fois, dans le
+tableau de bord :
+
+1. **Activer l'auth anonyme** — Authentication → Providers → *Anonymous
+   sign-ins*. Sans elle, l'API répond `anonymous_provider_disabled` et personne
+   ne peut créer ni rejoindre de partie. C'est le seul réglage qui ne passe pas
+   par SQL.
+2. Copier la **clé service-role** — Settings → API. Elle contourne la RLS :
+   elle ne va que dans `.env.local` (jamais commité) et dans les variables
+   d'environnement Vercel, jamais dans une variable `NEXT_PUBLIC_*`.
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://mrqhesvdazroyqqcwprh.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<clé anon, Settings → API>
+SUPABASE_SERVICE_ROLE_KEY=<clé service-role, Settings → API>
+```
+
+Pour repartir d'un projet vierge, `supabase/migrations/` rejoue le schéma tel
+quel.
 
 ## Tests
 
