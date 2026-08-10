@@ -850,7 +850,19 @@ function handleRent(
     throw new RuleError('ILLEGAL_CARD', 'Double loyer dupliqué');
   }
   for (const id of doubles) requireActionCard(p, id, 'DOUBLE_RENT');
-  const victim = requireOpponent(d, a.playerId, a.targetPlayerId);
+
+  // C'est la différence entre les deux quittances, et tout leur équilibre : la
+  // bicolore ne couvre que deux couleurs mais encaisse auprès de la table
+  // entière, l'universelle couvre tout mais ne vise qu'un joueur.
+  let victims: PlayerState[];
+  if (card.universal) {
+    if (!a.targetPlayerId) {
+      throw new RuleError('ILLEGAL_TARGET', 'Il faut viser un adversaire');
+    }
+    victims = [requireOpponent(d, a.playerId, a.targetPlayerId)];
+  } else {
+    victims = d.players.filter((x) => x.id !== a.playerId);
+  }
 
   const base = bestRentForColor(p, a.color);
   if (base === 0) {
@@ -868,7 +880,9 @@ function handleRent(
     {
       kind: 'RENT',
       sourcePlayerId: a.playerId,
-      targets: [makeTarget(victim.id)],
+      // Une cible par adversaire : chacun répond et paie pour son compte,
+      // exactement comme sur Anniversaire.
+      targets: victims.map((v) => makeTarget(v.id)),
       color: a.color,
       amount,
     },

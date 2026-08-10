@@ -464,6 +464,8 @@ function RentPrompt({
   actionsLeft: number;
 }) {
   const colors = rentableColors(me, prompt.cardId);
+  const card = getCard(prompt.cardId);
+  const universal = card.kind === 'RENT' && card.universal;
   const opponents = opponentsOfView(state, me.id);
   const doubles = me.hand.filter(isDoubleRent);
   const [color, setColor] = useState<Color | null>(colors[0] ?? null);
@@ -527,15 +529,24 @@ function RentPrompt({
         </Section>
       )}
 
-      <Section title="À qui">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {opponents.map((p) => (
-            <Choice key={p.id} selected={p.id === victim} onClick={() => setVictim(p.id)}>
-              <PlayerLine player={p} />
-            </Choice>
-          ))}
-        </div>
-      </Section>
+      {universal ? (
+        <Section title="À qui">
+          <div className="grid gap-2 sm:grid-cols-2">
+            {opponents.map((p) => (
+              <Choice key={p.id} selected={p.id === victim} onClick={() => setVictim(p.id)}>
+                <PlayerLine player={p} />
+              </Choice>
+            ))}
+          </div>
+        </Section>
+      ) : (
+        <Section title="À qui">
+          <p className="text-sm font-bold">
+            À tous les adversaires — {opponents.length} joueur
+            {opponents.length > 1 ? 's' : ''}, {amount} M chacun.
+          </p>
+        </Section>
+      )}
 
       <div className="mb-3 rounded-card border-2 border-ink/20 bg-paper px-3 py-2 text-sm font-bold">
         Loyer réclamé :{' '}
@@ -546,21 +557,21 @@ function RentPrompt({
       </div>
 
       <Button
-        disabled={!color || !victim || !affordable || amount === 0}
+        disabled={!color || (universal && !victim) || !affordable || amount === 0}
         onClick={() => {
-          if (!color || !victim) return;
+          if (!color || (universal && !victim)) return;
           ctl.closePrompt();
           void ctl.send({
             type: 'PLAY_RENT',
             playerId: me.id,
             cardId: prompt.cardId,
             color,
-            targetPlayerId: victim,
+            ...(universal && victim ? { targetPlayerId: victim } : {}),
             doubleCardIds: picked,
           });
         }}
       >
-        Réclamer {amount} M
+        Réclamer {amount} M{!universal && opponents.length > 1 ? ' à chacun' : ''}
       </Button>
     </>
   );
