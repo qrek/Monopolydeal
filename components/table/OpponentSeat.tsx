@@ -68,12 +68,14 @@ export const OpponentSeat = memo(function OpponentSeat({
           <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-mono-red" />
         )}
 
-        <span className="shrink-0 text-[0.68rem] font-bold leading-none text-ink-soft">
+        <span className="shrink-0 text-[0.72rem] font-bold leading-none text-ink-soft">
           ✋{player.handCount}
         </span>
         {/* Le détail de la banque vit maintenant dans son plateau ouvert : une
-            infobulle au survol ne sert à rien sur un écran tactile. */}
-        <span className="shrink-0 text-[0.68rem]">
+            infobulle au survol ne sert à rien sur un écran tactile. Ce qui
+            compte ici, c'est le montant — c'est lui qui dit si une action
+            passera ou non. */}
+        <span className="shrink-0 text-[0.85rem] leading-none">
           <BankTotal cards={player.bank} />
         </span>
 

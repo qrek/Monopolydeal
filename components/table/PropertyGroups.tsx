@@ -117,8 +117,10 @@ export const GroupStack = memo(function GroupStack({
         className="pointer-events-none absolute bottom-0.5 z-10 flex items-center gap-0.5"
       >
         <span
-          className={`rounded-[0.2rem] border border-ink/70 px-1 py-px text-[0.6rem] font-extrabold leading-none tabular-nums ${
-            complete ? '' : 'bg-cream text-ink-soft'
+          // L'avancement d'un lot est ce qu'on scrute chez soi comme chez les
+          // autres : il mérite d'être lisible d'un coup d'œil.
+          className={`rounded-[0.25rem] border-2 border-ink/80 px-1 py-0.5 text-[0.7rem] font-extrabold leading-none tabular-nums shadow-card ${
+            complete ? '' : 'bg-cream text-ink'
           }`}
           style={
             complete ? { background: cfg.hex, color: readableInk(cfg.hex) } : undefined

@@ -110,7 +110,14 @@ export function HandFan({
                     if (usableCard) ctl.beginDrag(id, e);
                   }}
                 >
-                  <div className={chosen ? 'rounded-card ring-4 ring-mono-red' : ''}>
+                  {/* Ombre portée sur l'enveloppe et non sur la carte : elle
+                      épouse le coin arrondi et se peint derrière, sans
+                      s'ajouter au filet noir de la face. */}
+                  <div
+                    className={`rounded-card shadow-hand ${
+                      chosen ? 'ring-4 ring-mono-red' : ''
+                    }`}
+                  >
                     <CardFace cardId={id} width={cardWidth} />
                   </div>
                 </motion.div>

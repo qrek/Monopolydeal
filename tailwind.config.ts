@@ -38,6 +38,8 @@ export default {
       },
       boxShadow: {
         card: '0 2px 6px -2px rgba(0, 0, 0, 0.45)',
+        /* Cartes en main : elles sont TENUES, elles doivent décoller du tapis. */
+        hand: '0 6px 10px -4px rgba(0, 0, 0, 0.45)',
         lift: '0 10px 22px -10px rgba(0, 0, 0, 0.55)',
         panel: '0 20px 45px -25px rgba(0, 0, 0, 0.7)',
         drag: '0 18px 30px -12px rgba(0, 0, 0, 0.6)',

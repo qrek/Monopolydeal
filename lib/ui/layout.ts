@@ -47,6 +47,22 @@ export function fanSideBleed(cardWidth: number): number {
   return Math.ceil((h * Math.sin(rad) + cardWidth * Math.cos(rad) - cardWidth) / 2);
 }
 
+/**
+ * Part de la carte en main qui reste au-dessus du bord de l'écran.
+ *
+ * Le bas d'une carte ne porte rien qui l'identifie : la valeur est en haut à
+ * gauche, le nom de rue sur le bandeau, le pictogramme au milieu. On laisse
+ * donc le pied de l'éventail passer sous le bord, et l'appui long donne le
+ * détail complet quand on en a besoin. Une trentaine de pixels rendus au reste
+ * de la table, là où la hauteur est la ressource rare.
+ */
+const HAND_VISIBLE = 0.8;
+
+/** De combien l'éventail descend sous le bord bas. */
+export function handSink(cardWidth: number): number {
+  return Math.round(cardWidth * CARD_RATIO * (1 - HAND_VISIBLE));
+}
+
 /** Hauteur réelle de l'éventail, arc et inclinaison compris. */
 export function fanHeight(cardWidth: number): number {
   const h = Math.round(cardWidth * CARD_RATIO);
@@ -108,9 +124,9 @@ const GAPS = 10;
  * adverse — c'est là qu'on lit ce qui menace, et un lot qui avance chez le
  * voisin compte autant que le sien.
  */
-const MINE_CAP_RATIO = 0.6;
-/** Les lots adverses, eux, restent plus petits que les miens. */
-const OPPONENT_CAP_RATIO = 0.75;
+const MINE_CAP_RATIO = 0.68;
+/** Les lots adverses, eux, restent un peu plus petits que les miens. */
+const OPPONENT_CAP_RATIO = 0.88;
 
 /** Hauteur naturelle d'un empilement de lots, à une largeur de carte donnée. */
 function stackHeight(cardWidth: number): number {
@@ -131,7 +147,10 @@ export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
   // hauteur complète ici repoussait mes propriétés et ma banque loin des cartes
   // pour rien.
   const hand =
-    Math.round(scale.hand * CARD_RATIO) + fanBottomBleed(scale.hand) + 12;
+    Math.round(scale.hand * CARD_RATIO) -
+    handSink(scale.hand) +
+    fanBottomBleed(scale.hand) +
+    12;
 
   const middle = Math.max(60, viewportHeight - HEADER - hand - GAPS);
 

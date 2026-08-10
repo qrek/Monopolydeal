@@ -48,7 +48,7 @@ import {
   type RedactedPlayer,
 } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
-import { useTable } from '@/lib/ui/layout';
+import { handSink, useTable } from '@/lib/ui/layout';
 import { myPendingTarget, myResponse } from '@/lib/ui/legal';
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -311,8 +311,13 @@ export function TableView({ view }: { view: GameView }) {
               active={playable}
               className="flex shrink-0 flex-col justify-end px-1 pb-0.5"
             >
-              <h2 className="board-label mb-0.5 text-right">
-                Ma banque · <span className="text-ink">{bankTotal(me)} M</span>
+              {/* Le montant est la donnée qu'on relit sans arrêt — pour payer,
+                  pour jauger ce qu'on peut encaisser. Il sort du libellé. */}
+              <h2 className="mb-0.5 flex items-baseline justify-end gap-1.5">
+                <span className="board-label">Ma banque</span>
+                <span className="text-[0.95rem] font-extrabold leading-none tabular-nums text-ink">
+                  {bankTotal(me)} M
+                </span>
               </h2>
               <BankRow
                 cards={me.bank}
@@ -341,7 +346,12 @@ export function TableView({ view }: { view: GameView }) {
               {ctl.error}
             </button>
           )}
-          <div className="safe-px absolute inset-x-0 bottom-1">
+          {/* L'éventail passe sous le bord bas : le pied ne réserve que la
+              part visible de la carte, et le reste est rogné par la page. */}
+          <div
+            className="safe-px absolute inset-x-0"
+            style={{ bottom: -handSink(scale.hand) }}
+          >
             <HandFan
               cards={me.hand}
               cardWidth={scale.hand}

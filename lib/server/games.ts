@@ -16,6 +16,7 @@ import { after } from 'next/server';
 
 import {
   JUST_SAY_NO_WINDOW_MS,
+  MAX_ACTIONS_PER_TURN,
   MAX_PLAYERS,
   RuleError,
   createGame,
@@ -345,25 +346,48 @@ function runEngine(
   const applied: Applied['actions'] = [];
   let cur = reduce(state, action);
   applied.push({ action, actorId });
-  for (let guard = 0; guard < 4; guard++) {
-    const autos = getAutoActions(cur);
-    if (autos.length === 0) break;
-    for (const auto of autos) {
-      cur = reduce(cur, auto);
-      applied.push({ action: auto, actorId: null });
-    }
-  }
 
-  // La pioche de début de tour n'est pas un choix : le client la déclenchait
-  // aussitôt, ce qui coûtait un aller-retour complet à chaque changement de
-  // main. On la joue ici, dans la même requête.
-  if (cur.phase === 'DRAW' && cur.players.length > 0) {
-    const next = cur.players[cur.turnIndex];
-    if (next) {
+  const settle = () => {
+    for (let guard = 0; guard < 4; guard++) {
+      const autos = getAutoActions(cur);
+      if (autos.length === 0) break;
+      for (const auto of autos) {
+        cur = reduce(cur, auto);
+        applied.push({ action: auto, actorId: null });
+      }
+    }
+  };
+  settle();
+
+  // Enchaînement des tours. La boucle est bornée par le nombre de joueurs :
+  // une partie sans plus aucune carte nulle part passerait sinon la main
+  // indéfiniment.
+  for (let guard = 0; guard <= cur.players.length; guard++) {
+    // La pioche de début de tour n'est pas un choix : le client la déclenchait
+    // aussitôt, ce qui coûtait un aller-retour complet à chaque changement de
+    // main. On la joue ici, dans la même requête.
+    if (cur.phase === 'DRAW') {
+      const next = cur.players[cur.turnIndex];
+      if (!next) break;
       const draw: GameAction = { type: 'DRAW', playerId: next.id };
       cur = reduce(cur, draw);
       applied.push({ action: draw, actorId: null });
     }
+
+    // Plus rien à faire de son tour : trois actions jouées, ou plus une seule
+    // carte en main. Dans les deux cas « Fin de tour » est le seul coup légal
+    // qui reste, et l'exiger à chaque fois n'était qu'un clic de péage. La
+    // main de plus de sept cartes passe quand même par la défausse : le moteur
+    // s'en charge, et là il y a bien un choix à faire.
+    if (cur.phase !== 'PLAY') break;
+    const p = cur.players[cur.turnIndex];
+    if (!p) break;
+    if (cur.actionsPlayed < MAX_ACTIONS_PER_TURN && p.hand.length > 0) break;
+
+    const end: GameAction = { type: 'END_TURN', playerId: p.id };
+    cur = reduce(cur, end);
+    applied.push({ action: end, actorId: null });
+    settle();
   }
 
   return { actions: applied, state: cur };
