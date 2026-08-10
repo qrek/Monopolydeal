@@ -103,6 +103,29 @@ s'écrase à zéro sur un téléphone couché.
 - **Éventail** : pas et inclinaison calculés d'après la largeur réelle
   (`ResizeObserver`), débordement d'inclinaison compris.
 
+## Latence
+
+Un coup joué coûtait **2,3 s** mesurées en production. Trois causes, cumulées :
+
+1. **Région.** Les fonctions Vercel tournaient loin du projet Supabase
+   (eu-west-1). Chaque requête SQL traversait l'Atlantique, et un coup en
+   enchaîne plusieurs. `preferredRegion = 'dub1'` les remet côte à côte.
+2. **Un aller-retour de trop.** Le client envoyait l'intention, puis
+   redemandait la vue. La route d'action renvoie désormais la vue à jour dans sa
+   réponse.
+3. **Requêtes en série.** Partie et état privé se lisent en une seule requête
+   (jointure par la clé étrangère) ; l'écriture de l'état et celle du journal
+   partent ensemble une fois le verrou de version pris ; la vue ne transporte
+   que les 60 derniers événements.
+
+## Arrêter une partie
+
+N'importe quel joueur peut interrompre la partie depuis le bandeau — pas
+seulement l'hôte : une partie se bloque souvent parce que quelqu'un est parti,
+et la sortie ne doit pas dépendre de la personne absente. Rien n'est supprimé,
+seul le statut passe à `finished`, ce qui referme la porte aux intentions et
+prévient les autres clients par le Realtime.
+
 ## Polish mobile (étape 7)
 
 Le jeu vise le téléphone en paysage ; le grand écran n'est plus une cible, la

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Wordmark } from '@/components/brand/Wordmark';
 import { CardBack } from '@/components/cards/CardFace';
+import { AbortButton } from '@/components/play/AbortButton';
 import { DiscardModal } from '@/components/play/DiscardModal';
 import { DragLayer, Zone } from '@/components/play/DropZones';
 import { FlightLayer } from '@/components/play/FlightLayer';
@@ -96,12 +97,13 @@ function useLossPulse(events: GameEvent[], me: string): boolean {
 
 export function TableView({ view }: { view: GameView }) {
   const refresh = useGameStore((s) => s.refresh);
+  const applyView = useGameStore((s) => s.applyView);
   const { scale, bands, viewport } = useTable();
   const [rotateDismissed, setRotateDismissed] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
 
   const state = view.state;
-  const ctl = usePlayController(view.game.code, view.viewerId, refresh);
+  const ctl = usePlayController(view.game.code, view.viewerId, applyView);
 
   const me = state?.players.find((p) => p.id === view.viewerId);
   const shaken = useLossPulse(state?.events ?? [], view.viewerId);
@@ -151,7 +153,8 @@ export function TableView({ view }: { view: GameView }) {
   }
 
   const opponents = seatOrder(state.players, view.viewerId);
-  const playable = myTurn && state.phase === 'PLAY' && left > 0;
+  const over = view.game.status === 'finished';
+  const playable = !over && myTurn && state.phase === 'PLAY' && left > 0;
   const held = ctl.drag?.cardId ?? ctl.selected;
 
   return (
@@ -199,6 +202,7 @@ export function TableView({ view }: { view: GameView }) {
             >
               Fin de tour
             </Button>
+            {!over && <AbortButton code={view.game.code} />}
             <button
               onClick={() => setLogOpen((v) => !v)}
               className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
@@ -347,7 +351,29 @@ export function TableView({ view }: { view: GameView }) {
         />
       )}
 
-      {mustDiscard && <DiscardModal me={me} ctl={ctl} />}
+      {mustDiscard && !over && <DiscardModal me={me} ctl={ctl} />}
+
+      {/* Partie arrêtée sans vainqueur : c'est une interruption, pas une fin de
+          partie, et il faut une sortie explicite. */}
+      {over && !state.winnerId && (
+        <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/70 px-6">
+          <div className="panel flex max-w-sm flex-col items-center gap-3 px-6 py-5 text-center">
+            <p className="text-xl font-extrabold uppercase tracking-tight">
+              Partie interrompue
+            </p>
+            <p className="text-sm text-ink-soft">
+              Un joueur y a mis fin. Rien n’est perdu : vous pouvez en relancer
+              une nouvelle.
+            </p>
+            <Link
+              href="/"
+              className="mt-1 inline-flex min-h-11 items-center rounded-card border-2 border-ink bg-mono-red px-5 font-extrabold text-cream"
+            >
+              Retour à l’accueil
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

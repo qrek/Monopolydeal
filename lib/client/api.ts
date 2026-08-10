@@ -56,10 +56,17 @@ export const api = {
       body: JSON.stringify({ type: 'START_GAME' }),
     }),
 
+  /** Renvoie la vue à jour : le client n'a pas à la redemander. */
   sendAction: (code: string, action: GameAction) =>
-    call<{ ok: true }>(`/api/games/${code}/actions`, {
+    call<{ ok: true; view: GameView }>(`/api/games/${code}/actions`, {
       method: 'POST',
       body: JSON.stringify({ action }),
+    }),
+
+  abortGame: (code: string) =>
+    call<{ ok: true; view: GameView }>(`/api/games/${code}/actions`, {
+      method: 'POST',
+      body: JSON.stringify({ type: 'ABORT_GAME' }),
     }),
 
   claimTimeout: (code: string) =>

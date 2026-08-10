@@ -14,6 +14,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { api, RequestError } from '@/lib/client/api';
+import type { GameView } from '@/lib/server/games';
 import { getCard, type CardId, type GameAction } from '@/lib/engine';
 import {
   destinationsFor,
@@ -107,7 +108,7 @@ const DRAG_THRESHOLD = 6;
 export function usePlayController(
   code: string,
   playerId: string,
-  refresh: () => Promise<void>,
+  applyView: (view: GameView) => void,
 ): PlayController {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,8 +161,10 @@ export function usePlayController(
       setBusy(true);
       setError(null);
       try {
-        await api.sendAction(code, action);
-        await refresh();
+        // La réponse porte déjà l'état à jour : un GET de plus par coup joué
+        // doublait la latence ressentie.
+        const { view } = await api.sendAction(code, action);
+        applyView(view);
         return true;
       } catch (e) {
         // Les erreurs de règle du moteur arrivent en clair : on les montre.
@@ -171,7 +174,7 @@ export function usePlayController(
         setBusy(false);
       }
     },
-    [code, refresh, launchFlight],
+    [code, applyView, launchFlight],
   );
 
   /**

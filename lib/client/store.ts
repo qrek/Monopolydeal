@@ -36,6 +36,8 @@ interface GameStore {
   error: string | null;
   /** Code d'erreur API brut, pour distinguer 404 / partie démarrée / complète. */
   errorCode: string | null;
+  /** Adopte une vue reçue en réponse d'une action, sans aller la rechercher. */
+  applyView: (view: GameView) => void;
   attach: (code: string) => Promise<void>;
   join: (code: string, name: string) => Promise<void>;
   refresh: () => Promise<void>;
@@ -59,6 +61,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   status: 'idle',
   error: null,
   errorCode: null,
+
+  applyView: (view) => set({ view, status: 'ready' }),
 
   attach: async (code) => {
     set({ code, status: 'loading', error: null, errorCode: null });

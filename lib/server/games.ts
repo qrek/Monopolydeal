@@ -103,6 +103,29 @@ async function loadPlayers(gameId: string): Promise<PlayerRow[]> {
   return (data ?? []) as PlayerRow[];
 }
 
+/**
+ * Partie et état privé en UNE requête, via la clé étrangère. Les deux lectures
+ * enchaînées coûtaient deux allers-retours à la base, et un coup en fait déjà
+ * plusieurs.
+ */
+async function loadWithPrivate(
+  code: string,
+): Promise<{ game: GameRow; priv: PrivateRow }> {
+  const db = adminClient();
+  const { data, error } = await db
+    .from('games')
+    .select('*, game_private(*)')
+    .eq('code', code.toUpperCase())
+    .maybeSingle();
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  if (!data) throw new ApiError(404, 'GAME_NOT_FOUND', 'Partie introuvable');
+  const row = data as GameRow & { game_private: PrivateRow | PrivateRow[] | null };
+  const priv = Array.isArray(row.game_private) ? row.game_private[0] : row.game_private;
+  if (!priv) throw new ApiError(500, 'STATE_MISSING', 'État absent');
+  const { game_private: _omit, ...game } = row;
+  return { game: game as GameRow, priv };
+}
+
 async function loadPrivate(gameId: string): Promise<PrivateRow> {
   const db = adminClient();
   const { data, error } = await db
@@ -208,19 +231,28 @@ export async function joinRoom(
 // Lecture
 // ---------------------------------------------------------------------------
 
+/**
+ * Le journal complet finit par peser lourd dans chaque réponse, et l'écran n'en
+ * montre que la fin. On n'envoie que les derniers événements.
+ */
+const EVENT_WINDOW = 60;
+
 export async function getGameView(
   code: string,
   userId: string,
 ): Promise<GameView> {
   const game = await loadByCode(code);
-  const players = await loadPlayers(game.id);
+  const [players, priv] = await Promise.all([
+    loadPlayers(game.id),
+    game.status === 'lobby' ? Promise.resolve(null) : loadPrivate(game.id),
+  ]);
   if (!players.some((p) => p.user_id === userId)) {
     throw new ApiError(403, 'NOT_A_PLAYER', "Vous n'êtes pas dans cette partie");
   }
   let state: RedactedState | null = null;
-  if (game.status !== 'lobby') {
-    const priv = await loadPrivate(game.id);
-    if (priv.state) state = redactFor(priv.state, userId);
+  if (priv?.state) {
+    state = redactFor(priv.state, userId);
+    state.events = state.events.slice(-EVENT_WINDOW);
   }
   return { game, players, state, viewerId: userId };
 }
@@ -313,20 +345,20 @@ async function persist(
     throw new ApiError(409, 'CONFLICT', 'Une autre action vient d’être jouée, réessayez');
   }
 
-  const { error: stateError } = await db
-    .from('game_private')
-    .update({ state: next })
-    .eq('game_id', game.id);
-  if (stateError) throw new ApiError(500, 'DB_ERROR', stateError.message);
-
   const rows = applied.actions.map((a, i) => ({
     game_id: game.id,
     seq: game.version + i + 1,
     actor_id: a.actorId,
     action: a.action,
   }));
-  const { error: logError } = await db.from('game_actions').insert(rows);
-  if (logError) throw new ApiError(500, 'DB_ERROR', logError.message);
+  // Le verrou de version est déjà pris : ces deux écritures ne peuvent plus
+  // entrer en concurrence, autant les mener de front.
+  const [stateWrite, logWrite] = await Promise.all([
+    db.from('game_private').update({ state: next }).eq('game_id', game.id),
+    db.from('game_actions').insert(rows),
+  ]);
+  if (stateWrite.error) throw new ApiError(500, 'DB_ERROR', stateWrite.error.message);
+  if (logWrite.error) throw new ApiError(500, 'DB_ERROR', logWrite.error.message);
 }
 
 function toApiError(e: unknown): never {
@@ -369,11 +401,10 @@ export async function applyIntent(
   action: GameAction,
 ): Promise<void> {
   assertClientAction(action, userId);
-  const game = await loadByCode(code);
+  const { game, priv } = await loadWithPrivate(code);
   if (game.status !== 'active') {
     throw new ApiError(409, 'GAME_NOT_ACTIVE', "La partie n'est pas en cours");
   }
-  const priv = await loadPrivate(game.id);
   if (!priv.state) throw new ApiError(500, 'STATE_MISSING', 'État absent');
   try {
     const applied = runEngine(priv.state, action, userId);
@@ -431,6 +462,30 @@ export async function claimResponseTimeout(
   } catch (e) {
     toApiError(e);
   }
+}
+
+/**
+ * Interrompt la partie. N'importe quel joueur peut le faire : c'est une porte de
+ * sortie quand une partie se bloque, pas un coup de jeu.
+ *
+ * Rien n'est supprimé — l'état et le journal restent en base pour comprendre ce
+ * qui s'est passé. Seul le statut change, ce qui referme la porte à toute
+ * nouvelle intention (`applyIntent` exige `active`) et réveille les autres
+ * clients via le Realtime, `version` étant incrémenté.
+ */
+export async function abortGame(code: string, userId: string): Promise<void> {
+  const db = adminClient();
+  const game = await loadByCode(code);
+  const players = await loadPlayers(game.id);
+  if (!players.some((p) => p.user_id === userId)) {
+    throw new ApiError(403, 'NOT_A_PLAYER', "Vous n'êtes pas dans cette partie");
+  }
+  if (game.status === 'finished') return;
+  const { error } = await db
+    .from('games')
+    .update({ status: 'finished', phase: 'GAME_OVER', version: game.version + 1 })
+    .eq('id', game.id);
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
 }
 
 /** Marque un joueur (dé)connecté — piloté par la présence Realtime du client. */
