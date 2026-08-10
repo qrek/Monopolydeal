@@ -10,8 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:offline": "node --experimental-strip-types --no-warnings tools/offline-test/run.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.0",

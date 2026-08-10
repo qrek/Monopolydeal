@@ -34,7 +34,10 @@ lib/server/            couche service (service-role, serveur uniquement)
   games.ts             création/lobby, application des intentions, verrou optimiste
 lib/supabase/          clients Supabase (admin / SSR / navigateur)
 lib/client/            api REST typée, abonnement Realtime, store Zustand
+lib/ui/                helpers de présentation (avatar généré)
 app/api/               Route Handlers (créer, rejoindre, vue, actions)
+app/                   accueil et /g/[code]
+components/            primitives d'UI et écrans de lobby
 supabase/migrations/   schéma SQL versionné
 ```
 
@@ -57,6 +60,33 @@ supabase/migrations/   schéma SQL versionné
 - **Reconnexion** : re-`join` idempotent + état reconstruit côté serveur
   (snapshot, et log `game_actions` rejouable par `replay()` du moteur).
 
+## Lobby (étape 3)
+
+- **Créer** une partie depuis l'accueil : le serveur tire un code à 4 lettres
+  dérivé du seed, l'URL `/g/CODE` est le lien d'invitation.
+- **Rejoindre** par le lien ou en tapant le code. Si on n'est pas encore joueur
+  de la partie, l'API répond `403 NOT_A_PLAYER` et l'écran bascule sur le choix
+  du pseudo ; sinon on entre directement.
+- **Salle d'attente** : liste temps réel des joueurs (Realtime sur
+  `game_players`), avatars générés en CSS (initiales + couleur FNV-1a dérivée du
+  user id, donc stable même après un renommage), sièges libres visibles,
+  bouton de lancement réservé à l'hôte et actif de 2 à 5 joueurs.
+- **Reconnexion** : l'identité est le user id anonyme Supabase, stable pour ce
+  navigateur ; `join` est idempotent. Rouvrir le lien suffit à retrouver sa
+  place, en lobby comme en cours de partie.
+- **Présence** : `game_players.connected` repasse à `true` au retour d'onglet et
+  à `false` via `sendBeacon` au départ — de quoi distinguer « absent » de « en
+  train de recharger ». Purement cosmétique : rien n'en dépend côté règles.
+
+### Direction artistique
+
+Aplats francs, coins arrondis, une seule typo (Outfit) du 400 au 800 — la
+hiérarchie vient de la graisse et du crénage. Aucune image externe : avatars,
+pastilles et cartes sont du CSS/SVG. Mobile-first, cibles tactiles de 48 px,
+mise en page vérifiée à 375 px. Les 10 couleurs de propriétés ont une source
+unique, `COLORS[color].hex` dans `lib/engine/cards.ts`, appliquée en style
+inline par les composants.
+
 ### Mise en route Supabase
 
 1. Crée un projet sur supabase.com, puis exécute
@@ -75,21 +105,6 @@ npm run typecheck # tsc --noEmit
 130 tests couvrent la composition du deck, le déroulé d'un tour, les lots et jokers,
 les constructions, les actions ciblées et le Refus catégorique, les loyers, les
 paiements, la victoire et le replay — dont les 15 cas limites du cahier des charges.
-
-### Exécution sans npm
-
-L'environnement de dev de cette session n'a pas accès à `registry.npmjs.org`
-(bloqué par la politique d'egress), donc `npm install` échoue. Le moteur n'ayant
-aucune dépendance, la suite tourne quand même via le type-stripping natif de Node :
-
-```bash
-npm run test:offline   # node --experimental-strip-types tools/offline-test/run.mjs
-```
-
-`tools/offline-test/` contient un micro-runner et un shim de l'API Vitest utilisée
-par les tests. Les fichiers de test importent `vitest` normalement et tournent tels
-quels sous le vrai Vitest une fois les dépendances installées. Ce dossier n'est jamais
-chargé par l'application et pourra être supprimé.
 
 ## Écarts assumés par rapport au cahier des charges
 
