@@ -482,25 +482,31 @@ function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: numbe
 
   return (
     <Frame width={width}>
-      <Plate background={PAPER_2} value={card.value} detail={detail} tight>
-        {detail !== 'minimal' && <PlateName text="Loyer" detail={detail} />}
+      {/* La plaque porte les DEUX couleurs, comme sur le joker : c'est ce qui
+          identifie la carte en un coup d'œil dans une main. Une plaque crème
+          uniforme ne disait rien, et reléguait les couleurs au rang de détail
+          dans un en-tête de tableau. */}
+      <Plate
+        background={`linear-gradient(90deg, ${COLORS[a].hex} 0 50%, ${COLORS[b].hex} 50% 100%)`}
+        value={card.value}
+        detail={detail}
+        tight
+      >
+        {detail !== 'minimal' && <Cartouche word="Loyer" />}
       </Plate>
 
       {detail !== 'minimal' && (
-        // Une seule table à deux colonnes : les paliers écrits UNE fois à
-        // gauche, un montant par couleur en face. La version précédente
-        // répétait le nom de la couleur et ses paliers à chaque ligne — trois
-        // fois la même information dans une carte de 92 px.
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-end gap-[0.2em] pb-[0.18em]">
-            {/* Pas de libellé au-dessus des pastilles : la plaque dit déjà
-                LOYER, et « loyer dû » se repliait sur deux lignes en écrasant
-                la colonne des paliers. */}
+          {/* Chaque colonne est teintée de SA couleur et coiffée d'une barre
+              pleine : la correspondance montant → couleur se lit sans en-tête à
+              écrire. Nommer les couleurs ici les faisait tronquer — « bleu
+              ciel » ne tient pas dans une colonne de 44 px. */}
+          <div className="flex shrink-0 items-stretch gap-[0.2em] pb-[0.16em]">
             <span className="min-w-0 flex-1" />
             {colors.map((c) => (
               <span
                 key={c}
-                className="h-[0.9em] w-[2.6em] shrink-0 rounded-[0.12em] border-[1.5px] border-ink"
+                className="h-[0.7em] w-[2.9em] shrink-0 rounded-[0.1em] border-[1.5px] border-ink"
                 style={{ background: COLORS[c].hex }}
               />
             ))}
@@ -521,9 +527,13 @@ function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: numbe
                   return (
                     <span
                       key={c}
-                      className={`w-[2.6em] shrink-0 rounded-[0.1em] py-[0.05em] text-center font-extrabold tabular-nums ${
+                      className={`w-[2.9em] shrink-0 rounded-[0.1em] py-[0.05em] text-center font-extrabold tabular-nums ${
                         complete[k] ? 'bg-ink text-cream' : ''
                       }`}
+                      // Teinte de la colonne : 15 % de la couleur du lot, assez
+                      // pour rattacher le chiffre à sa couleur, assez peu pour
+                      // que le chiffre noir reste net dessus.
+                      style={complete[k] ? undefined : { background: `${COLORS[c].hex}26` }}
                     >
                       {rent === undefined ? '—' : `${rent} M`}
                     </span>
