@@ -104,9 +104,13 @@ const GAPS = 10;
 
 /**
  * Mes cartes posées, au plus grand : une fraction des cartes en main. Mon
- * plateau ne doit pas voler la vedette à ce que je tiens.
+ * plateau ne doit ni voler la vedette à ce que je tiens, ni écraser la bande
+ * adverse — c'est là qu'on lit ce qui menace, et un lot qui avance chez le
+ * voisin compte autant que le sien.
  */
-const MINE_CAP_RATIO = 0.8;
+const MINE_CAP_RATIO = 0.6;
+/** Les lots adverses, eux, restent plus petits que les miens. */
+const OPPONENT_CAP_RATIO = 0.75;
 
 /** Hauteur naturelle d'un empilement de lots, à une largeur de carte donnée. */
 function stackHeight(cardWidth: number): number {
@@ -129,16 +133,24 @@ export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
   const hand =
     Math.round(scale.hand * CARD_RATIO) + fanBottomBleed(scale.hand) + 12;
 
-  const opponentStack = stackHeight(scale.opponent);
-
   const middle = Math.max(60, viewportHeight - HEADER - hand - GAPS);
+
+  // Mon plateau prend sa part, plafonnée : au-delà mes cartes ne grandiraient
+  // plus (voir `useTable`) et la bande n'ajouterait que du vide.
   const mineStack = Math.min(
-    // Plafond : au-delà, mes cartes ne grandiraient plus (voir `useTable`) et
-    // la bande ne ferait plus qu'ajouter du vide.
     stackHeight(Math.round(scale.hand * MINE_CAP_RATIO)),
     Math.max(
       stackHeight(scale.mine),
-      middle - (OPPONENT_CHROME + opponentStack) - MINE_LABEL,
+      middle - (OPPONENT_CHROME + stackHeight(scale.opponent)) - MINE_LABEL,
+    ),
+  );
+
+  // Tout le reste va aux adversaires, au lieu de rester en vide au milieu.
+  const opponentStack = Math.min(
+    stackHeight(Math.round(scale.hand * MINE_CAP_RATIO * OPPONENT_CAP_RATIO)),
+    Math.max(
+      stackHeight(scale.opponent),
+      middle - MINE_LABEL - mineStack - OPPONENT_CHROME,
     ),
   );
 
@@ -188,15 +200,20 @@ export function useTable(): { scale: TableScale; bands: Bands; viewport: Viewpor
   const base = scaleFor(viewport.height);
   const bands = bandHeights(base, viewport.height);
 
-  // Mes cartes remplissent la bande qui leur revient au lieu de flotter au
-  // milieu d'un vide.
-  const mine = Math.min(
-    Math.round(base.hand * MINE_CAP_RATIO),
-    Math.max(
-      base.mine,
-      Math.floor((bands.mineStack - MAX_STACK_GAPS * MIN_STACK_STEP) / CARD_RATIO),
-    ),
+  // Les cartes posées remplissent la bande qui leur revient, au lieu de
+  // flotter au milieu d'un vide.
+  const fill = (stack: number, floor: number, cap: number): number =>
+    Math.min(
+      cap,
+      Math.max(floor, Math.floor((stack - MAX_STACK_GAPS * MIN_STACK_STEP) / CARD_RATIO)),
+    );
+
+  const mine = fill(bands.mineStack, base.mine, Math.round(base.hand * MINE_CAP_RATIO));
+  const opponent = fill(
+    bands.opponentStack,
+    base.opponent,
+    Math.round(base.hand * MINE_CAP_RATIO * OPPONENT_CAP_RATIO),
   );
 
-  return { scale: { ...base, mine }, bands, viewport };
+  return { scale: { ...base, mine, opponent }, bands, viewport };
 }

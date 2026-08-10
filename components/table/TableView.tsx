@@ -31,6 +31,7 @@ import { ActionPips } from '@/components/table/ActionPips';
 import { BankRow } from '@/components/table/BankStack';
 import { GameLog } from '@/components/table/GameLog';
 import { HandFan } from '@/components/table/HandFan';
+import { OpponentBoard } from '@/components/table/OpponentBoard';
 import { OpponentSeat } from '@/components/table/OpponentSeat';
 import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { RotateHint } from '@/components/table/RotateHint';
@@ -101,6 +102,8 @@ export function TableView({ view }: { view: GameView }) {
   const { scale, bands, viewport } = useTable();
   const [rotateDismissed, setRotateDismissed] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
+  /** Adversaire dont le plateau est ouvert en détail. */
+  const [boardOf, setBoardOf] = useState<string | null>(null);
 
   const state = view.state;
   const ctl = usePlayController(view.game.code, view.viewerId, applyView);
@@ -155,15 +158,33 @@ export function TableView({ view }: { view: GameView }) {
   }
 
   const opponents = seatOrder(state.players, view.viewerId);
+  const shown = opponents.find((p) => p.id === boardOf);
   const over = view.game.status === 'finished';
   const playable = !over && myTurn && state.phase === 'PLAY' && left > 0;
   const held = ctl.drag?.cardId ?? ctl.selected;
 
   return (
     <div className="flex h-dvh w-full overflow-hidden">
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main className="relative flex min-w-0 flex-1 flex-col">
+        {/* Marque du tapis : le feutre d'une vraie table porte le logo du jeu.
+            Très effacé et inerte au pointeur — c'est un fond, pas un élément. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0 grid place-items-center overflow-hidden"
+        >
+          {/* Sans son ombre portée : à 5 % d'opacité elle ne se lit plus comme
+              un relief mais comme un cadre gris autour du bandeau. */}
+          {/* En produit plutôt qu'en transparence : le bandeau rouge posé à
+              plat sur le vert donnait un rectangle gris sale, alors qu'en
+              assombrissant le feutre il se lit comme une marque imprimée. */}
+          <Wordmark
+            size={Math.round(viewport.height * 0.22)}
+            className="opacity-[0.09] mix-blend-multiply [&_.brand-bar]:shadow-none"
+          />
+        </div>
+
         {/* Bandeau ------------------------------------------------------- */}
-        <header className="safe-px flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
+        <header className="safe-px relative z-10 flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
           <Link href="/" aria-label="Quitter la partie" className="shrink-0">
             <Wordmark size={18} short />
           </Link>
@@ -215,7 +236,7 @@ export function TableView({ view }: { view: GameView }) {
           </div>
         </header>
 
-        <div className="safe-px flex min-h-0 flex-1 flex-col gap-1 pb-1 pt-1.5">
+        <div className="safe-px relative z-10 flex min-h-0 flex-1 flex-col gap-1 pb-1 pt-1.5">
           {/* Adversaires --------------------------------------------------- */}
           <section className="flex shrink-0 items-start gap-3" aria-label="Adversaires">
             {opponents.map((p) => (
@@ -225,6 +246,7 @@ export function TableView({ view }: { view: GameView }) {
                 isCurrent={p.id === current?.id}
                 cardWidth={scale.opponent}
                 stackHeight={bands.opponentStack}
+                onOpen={() => setBoardOf(p.id)}
               />
             ))}
           </section>
@@ -363,6 +385,8 @@ export function TableView({ view }: { view: GameView }) {
       <FlightLayer ctl={ctl} width={scale.hand} />
 
       <PromptModal ctl={ctl} state={state} me={me} actionsLeft={left} />
+
+      <OpponentBoard player={shown ?? null} onClose={() => setBoardOf(null)} />
 
       {debt && (
         <PaymentModal

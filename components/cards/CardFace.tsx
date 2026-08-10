@@ -51,11 +51,24 @@ interface CardFaceProps {
   width?: number;
 }
 
-/** Valeur banque, en coin haut-gauche comme sur les cartes du jeu. */
+/**
+ * Valeur banque, en coin haut-gauche comme sur les cartes du jeu.
+ *
+ * Plus grande sur une carte pleine taille : en main, c'est le chiffre qu'on
+ * consulte à chaque tour pour payer, et il était plus petit que le nom de la
+ * rue qu'on ne lit qu'une fois.
+ */
 function ValueCorner({ value, detail }: { value: number; detail: Detail }) {
   if (value <= 0 || detail === 'minimal') return null;
+  const full = detail === 'full';
   return (
-    <span className="absolute left-[0.25em] top-[0.25em] grid h-[1.5em] min-w-[1.5em] place-items-center rounded-[0.2em] border border-ink/80 bg-cream px-[0.15em] text-[0.62em] font-extrabold leading-none text-ink">
+    <span
+      className={`absolute left-[0.25em] top-[0.25em] grid place-items-center rounded-[0.2em] border border-ink/80 bg-cream px-[0.15em] font-extrabold leading-none text-ink ${
+        full
+          ? 'h-[1.35em] min-w-[1.35em] text-[0.82em]'
+          : 'h-[1.5em] min-w-[1.5em] text-[0.62em]'
+      }`}
+    >
       {value}M
     </span>
   );

@@ -8,6 +8,7 @@
 import { memo } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
+import { useLongPress } from '@/components/cards/CardInspector';
 import { getCard, type CardId } from '@/lib/engine';
 
 function total(cards: CardId[]): number {
@@ -38,6 +39,31 @@ export function BankDetail({ cards }: { cards: CardId[] }) {
         );
       })}
     </ul>
+  );
+}
+
+/** Un billet posé. À part pour porter l'appui long, qui ouvre la loupe. */
+function BankNote({
+  cardId,
+  width,
+  left,
+  depth,
+}: {
+  cardId: CardId;
+  width: number;
+  left: number;
+  depth: number;
+}) {
+  const press = useLongPress(cardId);
+  return (
+    <div
+      {...press}
+      className="absolute top-0 touch-none"
+      style={{ left, zIndex: depth }}
+      title="Appui long pour agrandir"
+    >
+      <CardFace cardId={cardId} width={width} />
+    </div>
   );
 }
 
@@ -75,9 +101,7 @@ export const BankRow = memo(function BankRow({
       }}
     >
       {cards.map((id, i) => (
-        <div key={id} className="absolute top-0" style={{ left: i * step, zIndex: i }}>
-          <CardFace cardId={id} width={cardWidth} />
-        </div>
+        <BankNote key={id} cardId={id} width={cardWidth} left={i * step} depth={i} />
       ))}
     </div>
   );

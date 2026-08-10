@@ -13,6 +13,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 
+import { LONG_PRESS_MS, useInspect } from '@/components/cards/CardInspector';
 import { api, RequestError } from '@/lib/client/api';
 import type { GameView } from '@/lib/server/games';
 import { getCard, type CardId, type GameAction } from '@/lib/engine';
@@ -267,6 +268,8 @@ export function usePlayController(
     return null;
   }, []);
 
+  const inspect = useInspect();
+
   const beginDrag = useCallback(
     (cardId: CardId, e: React.PointerEvent) => {
       // Un clic droit ou un geste de défilement ne doit pas saisir une carte.
@@ -276,6 +279,16 @@ export function usePlayController(
       origin.current = { x: e.clientX, y: e.clientY, moved: false };
       snapshotZones(cardId);
 
+      // Doigt immobile : au bout d'un instant, on veut lire la carte, pas la
+      // jouer. Le moindre déplacement annule et rend la main au glisser.
+      let inspected = false;
+      const hold = setTimeout(() => {
+        if (origin.current?.moved) return;
+        inspected = true;
+        setDrag(null);
+        inspect(cardId);
+      }, LONG_PRESS_MS);
+
       // Un doigt émet bien plus d'événements que l'écran n'affiche d'images.
       // Sans ce filtre, chaque `pointermove` déclenchait un rendu complet de la
       // table — c'est ce qui faisait ramer le glisser sur téléphone.
@@ -284,12 +297,13 @@ export function usePlayController(
 
       const onMove = (ev: PointerEvent) => {
         const o = origin.current;
-        if (!o) return;
+        if (!o || inspected) return;
         const far =
           Math.abs(ev.clientX - o.x) > DRAG_THRESHOLD ||
           Math.abs(ev.clientY - o.y) > DRAG_THRESHOLD;
         if (!o.moved && !far) return;
         o.moved = true;
+        clearTimeout(hold);
         last = { x: ev.clientX, y: ev.clientY };
         if (frame) return;
         frame = requestAnimationFrame(() => {
@@ -303,6 +317,7 @@ export function usePlayController(
       const onUp = (ev: PointerEvent) => {
         if (frame) cancelAnimationFrame(frame);
         frame = 0;
+        clearTimeout(hold);
         target.releasePointerCapture?.(ev.pointerId);
         target.removeEventListener('pointermove', onMove);
         target.removeEventListener('pointerup', onUp);
@@ -310,6 +325,9 @@ export function usePlayController(
         const o = origin.current;
         origin.current = null;
         setDrag(null);
+        // La loupe est ouverte : relever le doigt ne doit pas sélectionner la
+        // carte par-dessous.
+        if (inspected) return;
         if (!o) return;
         if (!o.moved) {
           // Simple tape : on sélectionne, les zones deviennent cliquables.
@@ -324,7 +342,7 @@ export function usePlayController(
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
     },
-    [hitZone, snapshotZones, play],
+    [hitZone, snapshotZones, play, inspect],
   );
 
   return {

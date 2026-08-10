@@ -9,6 +9,7 @@
 import Link from 'next/link';
 import { useEffect } from 'react';
 
+import { CardInspectorProvider } from '@/components/cards/CardInspector';
 import { JoinForm } from '@/components/lobby/JoinForm';
 import { WaitingRoom } from '@/components/lobby/WaitingRoom';
 import { TableView } from '@/components/table/TableView';
@@ -92,5 +93,9 @@ export function GameRoom({ code }: { code: string }) {
 
   if (view.game.status === 'lobby') return <WaitingRoom view={view} />;
 
-  return <TableView view={view} />;
+  return (
+    <CardInspectorProvider>
+      <TableView view={view} />
+    </CardInspectorProvider>
+  );
 }

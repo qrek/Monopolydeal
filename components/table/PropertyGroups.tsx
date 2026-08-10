@@ -9,6 +9,7 @@
 import { memo } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
+import { useLongPress } from '@/components/cards/CardInspector';
 import {
   COLORS,
   getCard,
@@ -31,6 +32,43 @@ interface GroupProps {
 function isWild(id: CardId): boolean {
   const k = getCard(id).kind;
   return k === 'WILD' || k === 'WILD_ANY';
+}
+
+/**
+ * Une carte d'un lot. Composant à part parce qu'un appui long y ouvre la
+ * loupe, et qu'un hook ne se déclare pas dans une boucle.
+ */
+function StackedCard({
+  cardId,
+  width,
+  top,
+  depth,
+  onMoveWild,
+}: {
+  cardId: CardId;
+  width: number;
+  top: number;
+  depth: number;
+  onMoveWild?: (cardId: CardId) => void;
+}) {
+  const press = useLongPress(cardId);
+  return (
+    <div
+      {...press}
+      className={`absolute left-0 touch-none transition-transform duration-200 ${
+        onMoveWild ? 'cursor-pointer hover:-translate-y-1' : ''
+      }`}
+      style={{ top, zIndex: depth }}
+      onClick={(e) => {
+        // L'appui long a déjà ouvert la loupe : ce clic n'est qu'un résidu.
+        press.onClick(e);
+        if (!e.defaultPrevented) onMoveWild?.(cardId);
+      }}
+      title={onMoveWild ? 'Déplacer ce joker (gratuit)' : 'Appui long pour agrandir'}
+    >
+      <CardFace cardId={cardId} width={width} />
+    </div>
+  );
 }
 
 export const GroupStack = memo(function GroupStack({
@@ -59,22 +97,16 @@ export const GroupStack = memo(function GroupStack({
   return (
     <div className="relative flex shrink-0 flex-col items-center gap-1">
       <div className="relative" style={{ width: cardWidth, height }}>
-        {group.cards.map((id, i) => {
-          const movable = onMoveWild && isWild(id);
-          return (
-            <div
-              key={id}
-              className={`absolute left-0 transition-transform duration-200 ${
-                movable ? 'cursor-pointer hover:-translate-y-1' : ''
-              }`}
-              style={{ top: i * step, zIndex: i }}
-              onClick={movable ? () => onMoveWild(id) : undefined}
-              title={movable ? 'Déplacer ce joker (gratuit)' : undefined}
-            >
-              <CardFace cardId={id} width={cardWidth} />
-            </div>
-          );
-        })}
+        {group.cards.map((id, i) => (
+          <StackedCard
+            key={id}
+            cardId={id}
+            width={cardWidth}
+            top={i * step}
+            depth={i}
+            onMoveWild={onMoveWild && isWild(id) ? onMoveWild : undefined}
+          />
+        ))}
       </div>
 
       <div

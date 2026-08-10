@@ -10,7 +10,7 @@
 
 import { memo } from 'react';
 
-import { BankDetail, BankTotal } from '@/components/table/BankStack';
+import { BankTotal } from '@/components/table/BankStack';
 import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { SetPips } from '@/components/table/SetPips';
 import { Avatar } from '@/components/ui/Avatar';
@@ -21,17 +21,34 @@ export const OpponentSeat = memo(function OpponentSeat({
   isCurrent,
   cardWidth,
   stackHeight,
+  onOpen,
 }: {
   player: RedactedPlayer;
   isCurrent: boolean;
   cardWidth: number;
   /** Hauteur laissée aux lots. */
   stackHeight: number;
+  /** Ouvre son plateau en détail. */
+  onOpen: () => void;
 }) {
   const sets = completeColors(player).length;
 
   return (
-    <article className="flex min-w-0 flex-1 flex-col gap-1">
+    // Toute la place de l'adversaire ouvre son plateau : en paysage il n'y a
+    // pas de place pour un bouton dédié, et c'est là qu'on tape naturellement.
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-label={`Voir le plateau de ${player.name}`}
+      className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 rounded-panel transition-colors hover:bg-ink/5"
+    >
       <header className="flex items-center gap-1.5">
         <Avatar
           name={player.name}
@@ -54,13 +71,11 @@ export const OpponentSeat = memo(function OpponentSeat({
         <span className="shrink-0 text-[0.68rem] font-bold leading-none text-ink-soft">
           ✋{player.handCount}
         </span>
-        {/* Le détail de la banque au survol, sans quitter la table. */}
-        <div className="group relative shrink-0 cursor-default text-[0.68rem]" tabIndex={0}>
+        {/* Le détail de la banque vit maintenant dans son plateau ouvert : une
+            infobulle au survol ne sert à rien sur un écran tactile. */}
+        <span className="shrink-0 text-[0.68rem]">
           <BankTotal cards={player.bank} />
-          <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-40 rounded-card border-2 border-ink bg-cream p-2 text-left shadow-panel group-hover:block group-focus:block">
-            <BankDetail cards={player.bank} />
-          </div>
-        </div>
+        </span>
 
         <SetPips sets={sets} />
 
