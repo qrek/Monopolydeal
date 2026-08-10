@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { Wordmark } from '@/components/brand/Wordmark';
+import { RulesButton } from '@/components/rules/RulesBook';
 import { Button } from '@/components/ui/Button';
 import { NameField } from '@/components/ui/NameField';
 import { api, RequestError } from '@/lib/client/api';
@@ -130,6 +131,11 @@ export function HomeScreen() {
           {error}
         </p>
       )}
+
+      <RulesButton
+        className="mx-auto text-sm font-extrabold uppercase tracking-widest text-ink-soft underline decoration-ink/30 underline-offset-4 transition-colors hover:text-ink"
+        label="Règles du jeu"
+      />
     </main>
   );
 }

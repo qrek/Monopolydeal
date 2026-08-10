@@ -27,6 +27,7 @@ import {
 import { PaymentModal } from '@/components/play/PaymentModal';
 import { PromptModal } from '@/components/play/Prompts';
 import { usePlayController } from '@/components/play/usePlayController';
+import { RulesButton } from '@/components/rules/RulesBook';
 import { ActionPips } from '@/components/table/ActionPips';
 import { BankRow } from '@/components/table/BankStack';
 import { GameLog } from '@/components/table/GameLog';
@@ -272,6 +273,12 @@ export function TableView({ view }: { view: GameView }) {
                 <AbortButton code={view.game.code} />
               </>
             )}
+            {/* Le doute arrive en cours de partie, pas avant : les règles
+                doivent être à un pouce, sans quitter la table. */}
+            <RulesButton
+              className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
+              label="Règles"
+            />
             <button
               onClick={() => setLogOpen((v) => !v)}
               className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
