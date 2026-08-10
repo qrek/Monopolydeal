@@ -226,15 +226,22 @@ tableau de bord :
    sign-ins*. Sans elle, l'API répond `anonymous_provider_disabled` et personne
    ne peut créer ni rejoindre de partie. C'est le seul réglage qui ne passe pas
    par SQL.
-2. Copier la **clé service-role** — Settings → API. Elle contourne la RLS :
-   elle ne va que dans `.env.local` (jamais commité) et dans les variables
-   d'environnement Vercel, jamais dans une variable `NEXT_PUBLIC_*`.
+2. Copier les deux clés — Settings → API. Supabase les nomme désormais
+   « publishable » et « secret » ; les noms de variables ci-dessous sont ceux
+   que lit le code et ne doivent pas être renommés.
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://mrqhesvdazroyqqcwprh.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<clé anon, Settings → API>
-SUPABASE_SERVICE_ROLE_KEY=<clé service-role, Settings → API>
+# clé « publishable » — destinée au navigateur
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+# clé « secret » — serveur uniquement, contourne la RLS
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 ```
+
+La clé secrète ne prend **jamais** de préfixe `NEXT_PUBLIC_` : Next inline ces
+variables dans le JavaScript envoyé au navigateur. Sur Vercel, cocher les trois
+environnements (Production, Preview, Development) et **redéployer** — les
+variables ne s'appliquent pas aux déploiements déjà faits.
 
 Pour repartir d'un projet vierge, `supabase/migrations/` rejoue le schéma tel
 quel.
