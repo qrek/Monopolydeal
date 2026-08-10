@@ -18,10 +18,8 @@ function ofKind(kind: CardKind): Card[] {
 }
 
 describe('Composition du deck', () => {
-  it('contient 107 cartes (20 + 28 + 11 + 35 + 13)', () => {
-    // La spec annonce 106/34 actions mais son tableau détaillé somme à 35 :
-    // ce sont les quantités du tableau qui font foi.
-    expect(DECK_COMPOSITION.length).toBe(107);
+  it('contient 106 cartes (20 + 28 + 11 + 34 + 13)', () => {
+    expect(DECK_COMPOSITION.length).toBe(106);
   });
 
   it('a 20 cartes Argent réparties selon la table', () => {
@@ -57,9 +55,9 @@ describe('Composition du deck', () => {
     }
   });
 
-  it('a 35 cartes Action aux quantités annoncées', () => {
+  it('a 34 cartes Action aux quantités annoncées', () => {
     const actions = ofKind('ACTION');
-    expect(actions).toHaveLength(35);
+    expect(actions).toHaveLength(34);
     for (const kind of Object.keys(ACTIONS) as ActionKind[]) {
       const n = actions.filter(
         (c) => c.kind === 'ACTION' && c.action === kind,
@@ -134,7 +132,7 @@ describe('Mélange déterministe', () => {
 
   it('est une permutation stricte du deck', () => {
     const shuffled = shuffle(freshDeckIds(), 'xyz');
-    expect(shuffled).toHaveLength(107);
+    expect(shuffled).toHaveLength(106);
     expect([...shuffled].sort()).toEqual([...freshDeckIds()].sort());
   });
 

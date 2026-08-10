@@ -1,11 +1,9 @@
 /**
  * Définition du deck complet et des tables de référence.
  *
- * NOTE SUR LE TOTAL : la spec annonce « 34 cartes Action » et « 106 cartes »,
- * mais le tableau détaillé des actions somme à 35 (2+3+4+3+3+10+3+2+3+2), ce qui
- * porte le deck à 107. Les quantités du tableau font foi ici — c'est ce qui pilote
- * l'équilibre du jeu. `DECK_COMPOSITION` est la source de vérité unique, un test
- * verrouille la composition, et passer à 106 ne demande qu'à retirer une carte.
+ * 106 cartes : 20 argent + 28 propriétés + 11 jokers + 34 actions + 13 loyers.
+ * `DECK_COMPOSITION` est la source de vérité unique ; un test verrouille la
+ * composition exacte.
  */
 
 import type {
@@ -85,7 +83,7 @@ export interface ActionConfig {
 export const ACTIONS: Record<ActionKind, ActionConfig> = {
   DEAL_BREAKER: { qty: 2, value: 5, label: 'Coup de filet', targeted: true },
   SLY_DEAL: { qty: 3, value: 3, label: 'Affaire douteuse', targeted: true },
-  FORCED_DEAL: { qty: 4, value: 3, label: 'Échange forcé', targeted: true },
+  FORCED_DEAL: { qty: 3, value: 3, label: 'Échange forcé', targeted: true },
   DEBT_COLLECTOR: { qty: 3, value: 3, label: 'Recouvrement', targeted: true },
   BIRTHDAY: { qty: 3, value: 2, label: 'Anniversaire', targeted: true },
   PASS_GO: { qty: 10, value: 1, label: 'Passe départ', targeted: false },

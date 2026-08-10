@@ -60,9 +60,9 @@ chargé par l'application et pourra être supprimé.
 
 ## Écarts assumés par rapport au cahier des charges
 
-- **107 cartes, pas 106.** L'en-tête annonce « 34 cartes Action » mais le tableau
-  détaillé somme à 35 (2+3+4+3+3+10+3+2+3+2). Les quantités du tableau font foi.
-  `DECK_COMPOSITION` est la source unique ; revenir à 106 = retirer une carte.
+- **106 cartes.** Le tableau des actions du cahier des charges donnait
+  Échange forcé ×4 (soit 35 actions / 107 cartes) ; la composition réelle du jeu
+  est Échange forcé ×3, retenue ici : 34 actions, 106 cartes au total.
 - **Chaîne de Refus catégorique : parité.** Le cas limite 14 dit qu'une chaîne de
   3 Refus laisse passer l'action, ce qui contredit la règle « la cible du Refus est
   le joueur qui vient de jouer ». On applique la parité : 1 Refus annule, 2 rétablissent,

@@ -19,7 +19,7 @@ describe('Mise en place', () => {
     const s = reduce(newLobby(3), { type: 'START_GAME' });
     expect(s.phase).toBe('DRAW');
     for (const p of s.players) expect(p.hand).toHaveLength(5);
-    expect(s.deck).toHaveLength(107 - 15);
+    expect(s.deck).toHaveLength(106 - 15);
     expect(s.discard).toHaveLength(0);
   });
 

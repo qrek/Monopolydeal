@@ -214,7 +214,7 @@ describe('Replay et reconnexion', () => {
     expect(view.players[0]?.hand).toHaveLength(5);
     expect(view.players[1]?.hand).toHaveLength(0);
     expect(view.players[1]?.handCount).toBe(5);
-    expect(view.deckCount).toBe(107 - 15);
+    expect(view.deckCount).toBe(106 - 15);
   });
 });
 
