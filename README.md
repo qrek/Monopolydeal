@@ -109,8 +109,16 @@ Le jeu vise le téléphone en paysage ; le grand écran n'est plus une cible, la
 mise en page s'y adapte sans y être optimisée.
 
 - **Marges de sécurité** : en paysage l'encoche mange le bord gauche ou droit
-  selon le sens de rotation, d'où `env(safe-area-inset-left/right)` sur la table
-  et `inset-bottom` sous la main.
+  selon le sens de rotation. La marge se pose sur le CONTENU (`.safe-px` sur le
+  bandeau, le plateau et la main), jamais sur le conteneur pleine page : en haut
+  de l'arbre elle décale aussi les aplats et laisse deux bandes de tapis le long
+  des bords de l'écran.
+- **Coût de rendu** : `CardFace`, `GroupStack`, `BankRow` et `OpponentSeat` sont
+  mémoïsés, et le glisser ne met à jour sa position qu'une fois par image
+  (`requestAnimationFrame`), les rectangles des zones étant relevés une seule
+  fois au début du geste. Sans cela chaque `pointermove` reconstruisait toute la
+  table : mesuré à 28,9 fps contre 59,6 après, sur un processeur bridé 4× avec
+  cinq joueurs.
 - **Gestes** : pas de flash bleu au doigt, pas de menu contextuel sur appui long
   (on traîne des cartes), pas de zoom au double-tap, pas de rebond de
   défilement. Le plateau ne se sélectionne pas, les champs de saisie si.

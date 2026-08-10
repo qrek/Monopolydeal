@@ -86,7 +86,6 @@ export function HandFan({
                 <motion.div
                   key={id}
                   ref={(el) => ctl.registerCard(id, el)}
-                  layout
                   // L'inclinaison et le relèvement passent par Framer Motion et
                   // non par `style.transform` : Motion écrit sur la même
                   // propriété et remettait l'éventail à plat dès la fin de
@@ -103,9 +102,9 @@ export function HandFan({
                   }}
                   exit={{ opacity: 0, y: -28, scale: 0.88 }}
                   transition={SPRING}
-                  className={`absolute origin-bottom touch-none will-change-transform ${
+                  className={`absolute origin-bottom touch-none ${
                     usableCard ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
-                  }`}
+                  } ${ctl.drag?.cardId === id ? 'will-change-transform' : ''}`}
                   style={{ left: i * step, bottom: baseline, zIndex: chosen ? 100 : i }}
                   onPointerDown={(e) => {
                     if (usableCard) ctl.beginDrag(id, e);

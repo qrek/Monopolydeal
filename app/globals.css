@@ -98,13 +98,16 @@
   }
 
   /**
-   * Marges de sécurité. En paysage l'encoche et la barre d'accueil mangent les
-   * bords GAUCHE et DROIT selon le sens de rotation — d'où les deux côtés, et
-   * le bas pour l'indicateur d'accueil.
+   * Marges de sécurité. En paysage l'encoche mange le bord gauche OU droit
+   * selon le sens de rotation, d'où les deux côtés.
+   *
+   * À poser sur le CONTENU, jamais sur le conteneur pleine page : appliquée en
+   * haut de l'arbre, la marge décale aussi les aplats et laisse deux bandes de
+   * tapis visibles le long des bords de l'écran.
    */
-  .safe-x {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+  .safe-px {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
   }
   .safe-b {
     padding-bottom: env(safe-area-inset-bottom);

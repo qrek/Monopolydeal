@@ -241,20 +241,28 @@ export function usePlayController(
     setPrompt({ kind: 'COLOR', cardId, move: true });
   }, []);
 
-  /** Zone survolée par le pointeur, si elle accepte cette carte. */
-  const hitZone = useCallback(
-    (cardId: CardId, x: number, y: number): Destination | null => {
-      const allowed = destinationsFor(cardId);
-      for (const d of allowed) {
+  /**
+   * Rectangles des zones, relevés UNE FOIS au début du geste : les zones ne
+   * bougent pas pendant un glisser, et `getBoundingClientRect` à chaque
+   * `pointermove` force une reprise de mise en page à chaque image.
+   */
+  const zoneRects = useRef<Array<{ d: Destination; r: DOMRect }>>([]);
+
+  const snapshotZones = useCallback((cardId: CardId) => {
+    zoneRects.current = destinationsFor(cardId)
+      .map((d) => {
         const el = zones.current[d];
-        if (!el) continue;
-        const r = el.getBoundingClientRect();
-        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return d;
-      }
-      return null;
-    },
-    [],
-  );
+        return el ? { d, r: el.getBoundingClientRect() } : null;
+      })
+      .filter((z): z is { d: Destination; r: DOMRect } => z !== null);
+  }, []);
+
+  const hitZone = useCallback((x: number, y: number): Destination | null => {
+    for (const { d, r } of zoneRects.current) {
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return d;
+    }
+    return null;
+  }, []);
 
   const beginDrag = useCallback(
     (cardId: CardId, e: React.PointerEvent) => {
@@ -263,6 +271,13 @@ export function usePlayController(
       const target = e.currentTarget as HTMLElement;
       target.setPointerCapture(e.pointerId);
       origin.current = { x: e.clientX, y: e.clientY, moved: false };
+      snapshotZones(cardId);
+
+      // Un doigt émet bien plus d'événements que l'écran n'affiche d'images.
+      // Sans ce filtre, chaque `pointermove` déclenchait un rendu complet de la
+      // table — c'est ce qui faisait ramer le glisser sur téléphone.
+      let frame = 0;
+      let last: { x: number; y: number } | null = null;
 
       const onMove = (ev: PointerEvent) => {
         const o = origin.current;
@@ -272,16 +287,19 @@ export function usePlayController(
           Math.abs(ev.clientY - o.y) > DRAG_THRESHOLD;
         if (!o.moved && !far) return;
         o.moved = true;
-        setSelected(null);
-        setDrag({
-          cardId,
-          x: ev.clientX,
-          y: ev.clientY,
-          over: hitZone(cardId, ev.clientX, ev.clientY),
+        last = { x: ev.clientX, y: ev.clientY };
+        if (frame) return;
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          if (!last) return;
+          setSelected(null);
+          setDrag({ cardId, x: last.x, y: last.y, over: hitZone(last.x, last.y) });
         });
       };
 
       const onUp = (ev: PointerEvent) => {
+        if (frame) cancelAnimationFrame(frame);
+        frame = 0;
         target.releasePointerCapture?.(ev.pointerId);
         target.removeEventListener('pointermove', onMove);
         target.removeEventListener('pointerup', onUp);
@@ -295,7 +313,7 @@ export function usePlayController(
           setSelected((cur) => (cur === cardId ? null : cardId));
           return;
         }
-        const zone = hitZone(cardId, ev.clientX, ev.clientY);
+        const zone = hitZone(ev.clientX, ev.clientY);
         if (zone) play(cardId, zone);
       };
 
@@ -303,7 +321,7 @@ export function usePlayController(
       target.addEventListener('pointerup', onUp);
       target.addEventListener('pointercancel', onUp);
     },
-    [hitZone, play],
+    [hitZone, snapshotZones, play],
   );
 
   return {

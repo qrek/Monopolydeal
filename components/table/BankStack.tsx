@@ -5,6 +5,8 @@
 
 'use client';
 
+import { memo } from 'react';
+
 import { CardFace } from '@/components/cards/CardFace';
 import { getCard, type CardId } from '@/lib/engine';
 
@@ -40,7 +42,7 @@ export function BankDetail({ cards }: { cards: CardId[] }) {
 }
 
 /** Ma banque : les billets posés en éventail serré, montant lisible. */
-export function BankRow({ cards, cardWidth }: { cards: CardId[]; cardWidth: number }) {
+export const BankRow = memo(function BankRow({ cards, cardWidth }: { cards: CardId[]; cardWidth: number }) {
   if (cards.length === 0) {
     return <p className="py-1 text-[0.7rem] text-ink-soft">Banque vide</p>;
   }
@@ -61,4 +63,4 @@ export function BankRow({ cards, cardWidth }: { cards: CardId[]; cardWidth: numb
       ))}
     </div>
   );
-}
+});

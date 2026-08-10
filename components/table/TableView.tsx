@@ -155,10 +155,10 @@ export function TableView({ view }: { view: GameView }) {
   const held = ctl.drag?.cardId ?? ctl.selected;
 
   return (
-    <div className="safe-x flex h-dvh w-full overflow-hidden">
+    <div className="flex h-dvh w-full overflow-hidden">
       <main className="flex min-w-0 flex-1 flex-col">
         {/* Bandeau ------------------------------------------------------- */}
-        <header className="flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream px-2">
+        <header className="safe-px flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
           <Link href="/" aria-label="Quitter la partie" className="shrink-0">
             <Wordmark size={18} short />
           </Link>
@@ -209,7 +209,7 @@ export function TableView({ view }: { view: GameView }) {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-1 px-2 pb-1 pt-1.5">
+        <div className="safe-px flex min-h-0 flex-1 flex-col gap-1 pb-1 pt-1.5">
           {/* Adversaires --------------------------------------------------- */}
           <section className="flex shrink-0 items-start gap-3" aria-label="Adversaires">
             {opponents.map((p) => (
@@ -271,7 +271,7 @@ export function TableView({ view }: { view: GameView }) {
             du pied, dans le tapis vide, au lieu d'y réserver de la hauteur. */}
         <footer
           style={{ height: bands.hand }}
-          className="safe-b relative shrink-0 px-2 pb-1"
+          className="safe-b relative shrink-0 pb-1"
         >
           {/* Au-dessus de l'éventail, qui occupe désormais tout le pied. */}
           {ctl.error && (
@@ -282,7 +282,7 @@ export function TableView({ view }: { view: GameView }) {
               {ctl.error}
             </button>
           )}
-          <div className="absolute inset-x-2 bottom-1">
+          <div className="safe-px absolute inset-x-0 bottom-1">
             <HandFan
               cards={me.hand}
               cardWidth={scale.hand}
@@ -302,7 +302,7 @@ export function TableView({ view }: { view: GameView }) {
             onClick={() => setLogOpen(false)}
           />
           <aside
-            className="safe-x fixed inset-y-0 right-0 z-50 w-72 border-l-2 border-ink bg-cream shadow-panel"
+            className="fixed inset-y-0 right-0 z-50 w-72 border-l-2 border-ink bg-cream pr-[env(safe-area-inset-right)] shadow-panel"
             aria-label="Journal de partie"
           >
             <div className="no-scrollbar h-full overflow-y-auto p-3">

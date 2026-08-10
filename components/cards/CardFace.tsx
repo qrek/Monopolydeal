@@ -9,7 +9,15 @@
  * Une seule mesure pilote tout : `width`. La hauteur suit le ratio 5:7 et la
  * police est proportionnelle, si bien que les mêmes composants servent à la
  * main, aux lots et aux lots adverses.
+ *
+ * `memo` n'est pas cosmétique ici : une carte pèse une trentaine de nœuds, une
+ * table en affiche facilement quarante, et le moindre changement d'état — dont
+ * chaque `pointermove` d'un glisser — reconstruisait tout l'arbre.
  */
+
+'use client';
+
+import { memo } from 'react';
 
 import { ActionGlyph } from '@/components/cards/ActionGlyph';
 import {
@@ -458,7 +466,7 @@ function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: numbe
   );
 }
 
-export function CardFace({ cardId, width = 96 }: CardFaceProps) {
+export const CardFace = memo(function CardFace({ cardId, width = 96 }: CardFaceProps) {
   const card = getCard(cardId);
 
   switch (card.kind) {
@@ -475,10 +483,10 @@ export function CardFace({ cardId, width = 96 }: CardFaceProps) {
     case 'RENT':
       return <RentFace card={card} width={width} />;
   }
-}
+});
 
 /** Dos de carte : pioche, défausse et mains adverses. */
-export function CardBack({ width = 96 }: { width?: number }) {
+export const CardBack = memo(function CardBack({ width = 96 }: { width?: number }) {
   return (
     <div
       className="relative select-none overflow-hidden rounded-card border-2 border-ink shadow-card"
@@ -509,4 +517,4 @@ export function CardBack({ width = 96 }: { width?: number }) {
       )}
     </div>
   );
-}
+});

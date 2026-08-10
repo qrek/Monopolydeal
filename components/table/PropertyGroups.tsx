@@ -6,6 +6,8 @@
 
 'use client';
 
+import { memo } from 'react';
+
 import { CardFace } from '@/components/cards/CardFace';
 import {
   COLORS,
@@ -31,7 +33,7 @@ function isWild(id: CardId): boolean {
   return k === 'WILD' || k === 'WILD_ANY';
 }
 
-export function GroupStack({
+export const GroupStack = memo(function GroupStack({
   group,
   cardWidth,
   maxHeight,
@@ -110,7 +112,7 @@ export function GroupStack({
       </div>
     </div>
   );
-}
+});
 
 export function PropertyGroups({
   groups,

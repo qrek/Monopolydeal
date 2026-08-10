@@ -8,13 +8,15 @@
 
 'use client';
 
+import { memo } from 'react';
+
 import { BankDetail, BankTotal } from '@/components/table/BankStack';
 import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { SetPips } from '@/components/table/SetPips';
 import { Avatar } from '@/components/ui/Avatar';
 import { completeColors, type RedactedPlayer } from '@/lib/engine';
 
-export function OpponentSeat({
+export const OpponentSeat = memo(function OpponentSeat({
   player,
   isCurrent,
   cardWidth,
@@ -79,4 +81,4 @@ export function OpponentSeat({
       </div>
     </article>
   );
-}
+});
