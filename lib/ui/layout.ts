@@ -176,6 +176,37 @@ export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
   return { hand, mineStack, opponentStack };
 }
 
+// --- Ajustement en largeur ---------------------------------------------------
+// La hauteur fixe une taille de carte confortable ; encore faut-il que le
+// contenu tienne EN LARGEUR. Un joueur en fin de partie aligne cinq ou six lots
+// et une dizaine de billets : à taille fixe, les lots débordaient dans un
+// défilement qu'on ne voyait pas, et la banque mangeait un tiers de l'écran.
+
+/** Écart entre deux lots posés côte à côte. */
+const GROUP_GAP = 6;
+/** En deçà, une carte n'est plus qu'un aplat de couleur : inutile de rétrécir. */
+const MIN_CARD = 30;
+/** Recouvrement des billets : au-delà, le montant centré serait rogné. */
+const BANK_REVEAL = 0.62;
+
+/** Largeur de carte qui fait tenir `count` lots côte à côte dans `available`. */
+export function fitGroups(available: number, count: number, max: number): number {
+  if (count <= 1) return max;
+  const each = Math.floor((available - GROUP_GAP * (count - 1)) / count);
+  return Math.max(MIN_CARD, Math.min(max, each));
+}
+
+/**
+ * Largeur de billet qui fait tenir une banque de `count` cartes. On rétrécit la
+ * carte plutôt que de resserrer l'éventail : le montant est centré sur le
+ * billet, un recouvrement plus fort le couperait en deux.
+ */
+export function fitBank(available: number, count: number, max: number): number {
+  if (count <= 1) return max;
+  const span = 1 + BANK_REVEAL * (count - 1);
+  return Math.max(MIN_CARD, Math.min(max, Math.floor(available / span)));
+}
+
 export interface Viewport {
   width: number;
   height: number;

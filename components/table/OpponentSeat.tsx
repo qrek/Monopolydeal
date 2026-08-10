@@ -15,17 +15,21 @@ import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { SetPips } from '@/components/table/SetPips';
 import { Avatar } from '@/components/ui/Avatar';
 import { completeColors, type RedactedPlayer } from '@/lib/engine';
+import { fitGroups } from '@/lib/ui/layout';
 
 export const OpponentSeat = memo(function OpponentSeat({
   player,
   isCurrent,
   cardWidth,
+  seatWidth,
   stackHeight,
   onOpen,
 }: {
   player: RedactedPlayer;
   isCurrent: boolean;
   cardWidth: number;
+  /** Largeur qui revient à ce joueur dans la rangée. */
+  seatWidth: number;
   /** Hauteur laissée aux lots. */
   stackHeight: number;
   /** Ouvre son plateau en détail. */
@@ -91,7 +95,9 @@ export const OpponentSeat = memo(function OpponentSeat({
       <div className="min-h-0 flex-1 overflow-hidden">
         <PropertyGroups
           groups={player.groups}
-          cardWidth={cardWidth}
+          // Ses lots rétrécissent pour tenir dans sa place plutôt que de partir
+          // dans un défilement horizontal que personne ne voit.
+          cardWidth={fitGroups(seatWidth, player.groups.length, cardWidth)}
           maxHeight={stackHeight}
           empty="—"
         />

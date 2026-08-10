@@ -48,7 +48,7 @@ import {
   type RedactedPlayer,
 } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
-import { handSink, useTable } from '@/lib/ui/layout';
+import { fitBank, fitGroups, handSink, useTable } from '@/lib/ui/layout';
 import { myPendingTarget, myResponse } from '@/lib/ui/legal';
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -159,6 +159,26 @@ export function TableView({ view }: { view: GameView }) {
 
   const opponents = seatOrder(state.players, view.viewerId);
   const shown = opponents.find((p) => p.id === boardOf);
+
+  // Répartition de la LARGEUR de mon plateau. La banque prend ce qu'il lui faut
+  // mais jamais plus de sa part ; mes lots héritent du reste et rétrécissent
+  // pour tenir. Sans cela, huit billets poussaient mes propriétés dans un
+  // défilement horizontal invisible.
+  const rowWidth = Math.max(240, viewport.width - 16);
+  const actionWidth = Math.round(scale.mine * 1.9);
+  const bankShare = Math.round((rowWidth - actionWidth) * 0.42);
+  const bankWidth = fitBank(bankShare, me.bank.length, scale.mine);
+  const bankSpan =
+    me.bank.length > 0
+      ? bankWidth + Math.round(bankWidth * 0.62) * (me.bank.length - 1)
+      : 0;
+  // 32 px de chrome : les deux écarts entre zones (2 × 8) et le retrait
+  // intérieur de chacune des deux zones bordées (2 × 8).
+  const mineWidth = fitGroups(
+    rowWidth - actionWidth - bankSpan - 32,
+    me.groups.length,
+    scale.mine,
+  );
   const over = view.game.status === 'finished';
   const playable = !over && myTurn && state.phase === 'PLAY' && left > 0;
   const held = ctl.drag?.cardId ?? ctl.selected;
@@ -244,6 +264,7 @@ export function TableView({ view }: { view: GameView }) {
                 player={p}
                 isCurrent={p.id === current?.id}
                 cardWidth={scale.opponent}
+                seatWidth={Math.floor((rowWidth - 12 * (opponents.length - 1)) / opponents.length)}
                 stackHeight={bands.opponentStack}
                 onOpen={() => setBoardOf(p.id)}
               />
@@ -273,7 +294,7 @@ export function TableView({ view }: { view: GameView }) {
               </h2>
               <PropertyGroups
                 groups={me.groups}
-                cardWidth={scale.mine}
+                cardWidth={mineWidth}
                 maxHeight={bands.mineStack}
                 onMoveWild={playable && !held ? ctl.moveWild : undefined}
               />
@@ -318,13 +339,7 @@ export function TableView({ view }: { view: GameView }) {
                   {bankTotal(me)} M
                 </span>
               </h2>
-              <BankRow
-                cards={me.bank}
-                cardWidth={scale.mine}
-                // Une banque fournie ne doit pas repousser mes propriétés hors
-                // de l'écran : passé cette largeur, les billets se resserrent.
-                maxWidth={Math.round(viewport.width * 0.34)}
-              />
+              <BankRow cards={me.bank} cardWidth={bankWidth} maxWidth={bankShare} />
             </Zone>
           </section>
         </div>
