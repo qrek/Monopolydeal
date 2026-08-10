@@ -1,0 +1,450 @@
+/**
+ * Service de partie, côté serveur uniquement.
+ *
+ * Toutes les mutations suivent le même chemin :
+ *   charger l'état privé → valider l'identité de l'acteur → reduce() du moteur
+ *   → transitions automatiques → écrire état + version (verrou optimiste)
+ *   → append au log d'intentions.
+ *
+ * `games.version` sert à la fois de verrou optimiste (deux actions concurrentes
+ * ne peuvent pas écraser le même état) et de signal Realtime côté client.
+ */
+
+import 'server-only';
+
+import {
+  JUST_SAY_NO_WINDOW_MS,
+  MAX_PLAYERS,
+  RuleError,
+  createGame,
+  getAutoActions,
+  redactFor,
+  reduce,
+  roomCodeFromSeed,
+  type GameAction,
+  type GameState,
+  type RedactedState,
+} from '@/lib/engine';
+import { ApiError } from '@/lib/server/errors';
+import { adminClient } from '@/lib/supabase/admin';
+
+// ---------------------------------------------------------------------------
+// Types de lignes (le schéma vit dans supabase/migrations)
+// ---------------------------------------------------------------------------
+
+export interface GameRow {
+  id: string;
+  code: string;
+  status: 'lobby' | 'active' | 'finished';
+  phase: string;
+  host_id: string;
+  version: number;
+  winner_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlayerRow {
+  game_id: string;
+  user_id: string;
+  name: string;
+  seat: number;
+  connected: boolean;
+  joined_at: string;
+}
+
+interface PrivateRow {
+  game_id: string;
+  seed: string;
+  state: GameState | null;
+}
+
+export interface GameView {
+  game: GameRow;
+  players: PlayerRow[];
+  /** Vue du moteur filtrée pour ce joueur ; null tant que la partie n'a pas démarré. */
+  state: RedactedState | null;
+  /** Id du joueur tel que vu par le moteur (= user id Supabase). */
+  viewerId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function sanitizeName(raw: unknown): string {
+  const name = String(raw ?? '')
+    .replace(/[\p{Cc}\p{Cf}]/gu, '')
+    .trim()
+    .slice(0, 24);
+  return name.length > 0 ? name : 'Joueur';
+}
+
+async function loadByCode(code: string): Promise<GameRow> {
+  const db = adminClient();
+  const { data, error } = await db
+    .from('games')
+    .select('*')
+    .eq('code', code.toUpperCase())
+    .maybeSingle();
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  if (!data) throw new ApiError(404, 'GAME_NOT_FOUND', 'Partie introuvable');
+  return data as GameRow;
+}
+
+async function loadPlayers(gameId: string): Promise<PlayerRow[]> {
+  const db = adminClient();
+  const { data, error } = await db
+    .from('game_players')
+    .select('*')
+    .eq('game_id', gameId)
+    .order('seat');
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  return (data ?? []) as PlayerRow[];
+}
+
+async function loadPrivate(gameId: string): Promise<PrivateRow> {
+  const db = adminClient();
+  const { data, error } = await db
+    .from('game_private')
+    .select('*')
+    .eq('game_id', gameId)
+    .single();
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  return data as PrivateRow;
+}
+
+function statusOf(state: GameState): GameRow['status'] {
+  if (state.phase === 'GAME_OVER') return 'finished';
+  if (state.phase === 'LOBBY') return 'lobby';
+  return 'active';
+}
+
+// ---------------------------------------------------------------------------
+// Création & lobby
+// ---------------------------------------------------------------------------
+
+export async function createRoom(
+  userId: string,
+  rawName: unknown,
+): Promise<{ code: string; gameId: string }> {
+  const db = adminClient();
+  const name = sanitizeName(rawName);
+
+  // Le code est dérivé du seed ; en cas de collision (unique sur code), on
+  // retire un seed. 24^4 ≈ 331k codes, la boucle aboutit vite.
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const seed = crypto.randomUUID();
+    const code = roomCodeFromSeed(seed);
+    const { data: game, error } = await db
+      .from('games')
+      .insert({ code, host_id: userId })
+      .select('*')
+      .single();
+    if (error) {
+      if (error.code === '23505') continue; // collision de code
+      throw new ApiError(500, 'DB_ERROR', error.message);
+    }
+    const g = game as GameRow;
+    const [priv, player] = await Promise.all([
+      db.from('game_private').insert({ game_id: g.id, seed, state: null }),
+      db.from('game_players').insert({
+        game_id: g.id,
+        user_id: userId,
+        name,
+        seat: 0,
+      }),
+    ]);
+    if (priv.error || player.error) {
+      await db.from('games').delete().eq('id', g.id);
+      throw new ApiError(
+        500,
+        'DB_ERROR',
+        priv.error?.message ?? player.error?.message,
+      );
+    }
+    return { code: g.code, gameId: g.id };
+  }
+  throw new ApiError(500, 'CODE_EXHAUSTED', 'Impossible de générer un code');
+}
+
+/** Rejoint une partie en lobby. Idempotent : re-rejoindre = reconnexion. */
+export async function joinRoom(
+  code: string,
+  userId: string,
+  rawName: unknown,
+): Promise<{ gameId: string }> {
+  const db = adminClient();
+  const game = await loadByCode(code);
+  const players = await loadPlayers(game.id);
+  const existing = players.find((p) => p.user_id === userId);
+
+  if (existing) {
+    await db
+      .from('game_players')
+      .update({ connected: true })
+      .eq('game_id', game.id)
+      .eq('user_id', userId);
+    return { gameId: game.id };
+  }
+  if (game.status !== 'lobby') {
+    throw new ApiError(409, 'GAME_STARTED', 'La partie a déjà commencé');
+  }
+  if (players.length >= MAX_PLAYERS) {
+    throw new ApiError(409, 'GAME_FULL', 'La partie est complète (5 joueurs)');
+  }
+  const seat = Math.max(-1, ...players.map((p) => p.seat)) + 1;
+  const { error } = await db.from('game_players').insert({
+    game_id: game.id,
+    user_id: userId,
+    name: sanitizeName(rawName),
+    seat,
+  });
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  return { gameId: game.id };
+}
+
+// ---------------------------------------------------------------------------
+// Lecture
+// ---------------------------------------------------------------------------
+
+export async function getGameView(
+  code: string,
+  userId: string,
+): Promise<GameView> {
+  const game = await loadByCode(code);
+  const players = await loadPlayers(game.id);
+  if (!players.some((p) => p.user_id === userId)) {
+    throw new ApiError(403, 'NOT_A_PLAYER', "Vous n'êtes pas dans cette partie");
+  }
+  let state: RedactedState | null = null;
+  if (game.status !== 'lobby') {
+    const priv = await loadPrivate(game.id);
+    if (priv.state) state = redactFor(priv.state, userId);
+  }
+  return { game, players, state, viewerId: userId };
+}
+
+// ---------------------------------------------------------------------------
+// Application des intentions
+// ---------------------------------------------------------------------------
+
+/** Intentions qu'un client a le droit d'envoyer (le reste est serveur). */
+const CLIENT_ACTIONS: ReadonlySet<GameAction['type']> = new Set([
+  'DRAW',
+  'PLAY_MONEY',
+  'PLAY_PROPERTY',
+  'MOVE_WILD',
+  'PLAY_BUILDING',
+  'PLAY_PASS_GO',
+  'PLAY_DEAL_BREAKER',
+  'PLAY_SLY_DEAL',
+  'PLAY_FORCED_DEAL',
+  'PLAY_DEBT_COLLECTOR',
+  'PLAY_BIRTHDAY',
+  'PLAY_RENT',
+  'RESPOND_JUST_SAY_NO',
+  'RESPOND_ACCEPT',
+  'PAY',
+  'DISCARD',
+  'END_TURN',
+] as GameAction['type'][]);
+
+function assertClientAction(
+  action: GameAction,
+  userId: string,
+): asserts action is GameAction {
+  if (!CLIENT_ACTIONS.has(action.type)) {
+    throw new ApiError(403, 'FORBIDDEN_ACTION', `${action.type} est réservé au serveur`);
+  }
+  // Toutes les intentions client portent un playerId : il doit être l'appelant.
+  if (!('playerId' in action) || action.playerId !== userId) {
+    throw new ApiError(403, 'NOT_YOUR_ACTION', 'playerId ≠ utilisateur authentifié');
+  }
+}
+
+interface Applied {
+  actions: Array<{ action: GameAction; actorId: string | null }>;
+  state: GameState;
+}
+
+/** Applique une intention + les transitions automatiques qui en découlent. */
+function runEngine(
+  state: GameState,
+  action: GameAction,
+  actorId: string | null,
+): Applied {
+  const applied: Applied['actions'] = [];
+  let cur = reduce(state, action);
+  applied.push({ action, actorId });
+  for (let guard = 0; guard < 4; guard++) {
+    const autos = getAutoActions(cur);
+    if (autos.length === 0) break;
+    for (const auto of autos) {
+      cur = reduce(cur, auto);
+      applied.push({ action: auto, actorId: null });
+    }
+  }
+  return { actions: applied, state: cur };
+}
+
+async function persist(
+  game: GameRow,
+  applied: Applied,
+): Promise<void> {
+  const db = adminClient();
+  const next = applied.state;
+  const newVersion = game.version + applied.actions.length;
+
+  // Verrou optimiste : l'update n'aboutit que si personne n'a écrit entre-temps.
+  const { data: updated, error } = await db
+    .from('games')
+    .update({
+      version: newVersion,
+      phase: next.phase,
+      status: statusOf(next),
+      winner_id: next.winnerId,
+    })
+    .eq('id', game.id)
+    .eq('version', game.version)
+    .select('id');
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  if (!updated || updated.length === 0) {
+    throw new ApiError(409, 'CONFLICT', 'Une autre action vient d’être jouée, réessayez');
+  }
+
+  const { error: stateError } = await db
+    .from('game_private')
+    .update({ state: next })
+    .eq('game_id', game.id);
+  if (stateError) throw new ApiError(500, 'DB_ERROR', stateError.message);
+
+  const rows = applied.actions.map((a, i) => ({
+    game_id: game.id,
+    seq: game.version + i + 1,
+    actor_id: a.actorId,
+    action: a.action,
+  }));
+  const { error: logError } = await db.from('game_actions').insert(rows);
+  if (logError) throw new ApiError(500, 'DB_ERROR', logError.message);
+}
+
+function toApiError(e: unknown): never {
+  if (e instanceof RuleError) {
+    throw new ApiError(422, e.code, e.message);
+  }
+  throw e;
+}
+
+/** Démarre la partie : réservé à l'hôte, 2 à 5 joueurs présents. */
+export async function startGame(code: string, userId: string): Promise<void> {
+  const game = await loadByCode(code);
+  if (game.host_id !== userId) {
+    throw new ApiError(403, 'HOST_ONLY', "Seul l'hôte peut lancer la partie");
+  }
+  if (game.status !== 'lobby') {
+    throw new ApiError(409, 'GAME_STARTED', 'La partie a déjà commencé');
+  }
+  const [players, priv] = await Promise.all([
+    loadPlayers(game.id),
+    loadPrivate(game.id),
+  ]);
+  const initial = createGame({
+    id: game.id,
+    seed: priv.seed,
+    players: players.map((p) => ({ id: p.user_id, name: p.name })),
+  });
+  try {
+    const applied = runEngine(initial, { type: 'START_GAME' }, userId);
+    await persist(game, applied);
+  } catch (e) {
+    toApiError(e);
+  }
+}
+
+/** Applique une intention de jeu envoyée par un client. */
+export async function applyIntent(
+  code: string,
+  userId: string,
+  action: GameAction,
+): Promise<void> {
+  assertClientAction(action, userId);
+  const game = await loadByCode(code);
+  if (game.status !== 'active') {
+    throw new ApiError(409, 'GAME_NOT_ACTIVE', "La partie n'est pas en cours");
+  }
+  const priv = await loadPrivate(game.id);
+  if (!priv.state) throw new ApiError(500, 'STATE_MISSING', 'État absent');
+  try {
+    const applied = runEngine(priv.state, action, userId);
+    await persist(game, applied);
+  } catch (e) {
+    toApiError(e);
+  }
+}
+
+/**
+ * Fenêtre de Refus expirée : n'importe quel joueur de la partie peut réclamer
+ * le timeout ; le serveur vérifie le délai puis accepte au nom des cibles qui
+ * n'ont pas répondu. Timeout = acceptation.
+ */
+export async function claimResponseTimeout(
+  code: string,
+  userId: string,
+): Promise<void> {
+  const game = await loadByCode(code);
+  const players = await loadPlayers(game.id);
+  if (!players.some((p) => p.user_id === userId)) {
+    throw new ApiError(403, 'NOT_A_PLAYER', "Vous n'êtes pas dans cette partie");
+  }
+  const priv = await loadPrivate(game.id);
+  const state = priv.state;
+  if (!state || state.phase !== 'RESOLVING_ACTION' || !state.pending) {
+    throw new ApiError(409, 'NOTHING_PENDING', 'Aucune réponse attendue');
+  }
+  const elapsed = Date.now() - new Date(game.updated_at).getTime();
+  if (elapsed < JUST_SAY_NO_WINDOW_MS) {
+    throw new ApiError(425, 'TOO_EARLY', 'La fenêtre de réponse court encore');
+  }
+
+  const stale = state.pending.targets.filter(
+    (t) => t.status === 'AWAITING_RESPONSE',
+  );
+  if (stale.length === 0) {
+    throw new ApiError(409, 'NOTHING_PENDING', 'Aucune réponse attendue');
+  }
+  try {
+    let applied: Applied | null = null;
+    let cur = state;
+    const all: Applied['actions'] = [];
+    for (const t of stale) {
+      const accept: GameAction = {
+        type: 'RESPOND_ACCEPT',
+        playerId: t.responderId,
+        againstPlayerId: t.playerId,
+      };
+      applied = runEngine(cur, accept, null);
+      cur = applied.state;
+      all.push(...applied.actions);
+    }
+    await persist(game, { actions: all, state: cur });
+  } catch (e) {
+    toApiError(e);
+  }
+}
+
+/** Marque un joueur (dé)connecté — piloté par la présence Realtime du client. */
+export async function setConnected(
+  code: string,
+  userId: string,
+  connected: boolean,
+): Promise<void> {
+  const db = adminClient();
+  const game = await loadByCode(code);
+  const { error } = await db
+    .from('game_players')
+    .update({ connected })
+    .eq('game_id', game.id)
+    .eq('user_id', userId);
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+}

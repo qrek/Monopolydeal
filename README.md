@@ -23,14 +23,47 @@ Tailwind · Framer Motion · Zustand · déploiement Vercel.
    `LOBBY → DRAW → PLAY → RESOLVING_ACTION → AWAITING_PAYMENT → DISCARD → END_TURN → GAME_OVER`.
 
 ```
-lib/engine/
-  types.ts       état, intentions, événements, erreurs typées
-  cards.ts       deck complet, grilles de loyer, prédicats de cartes
-  rng.ts         PRNG déterministe + mélange Fisher–Yates
-  selectors.ts   lectures dérivées (lots complets, loyers, cartes payables, vue redacted)
-  machine.ts     table des phases et des intentions autorisées
-  reduce.ts      toutes les règles
+lib/engine/            moteur pur (aucune dépendance)
+  types.ts             état, intentions, événements, erreurs typées
+  cards.ts             deck complet, grilles de loyer, prédicats de cartes
+  rng.ts               PRNG déterministe + mélange Fisher–Yates
+  selectors.ts         lectures dérivées (lots, loyers, cartes payables, vue redacted)
+  machine.ts           table des phases et des intentions autorisées
+  reduce.ts            toutes les règles
+lib/server/            couche service (service-role, serveur uniquement)
+  games.ts             création/lobby, application des intentions, verrou optimiste
+lib/supabase/          clients Supabase (admin / SSR / navigateur)
+lib/client/            api REST typée, abonnement Realtime, store Zustand
+app/api/               Route Handlers (créer, rejoindre, vue, actions)
+supabase/migrations/   schéma SQL versionné
 ```
+
+## Synchro temps réel (étape 2)
+
+- **Postgres** : `games` (métadonnées + `version`), `game_players`,
+  `game_private` (seed + état complet — RLS sans policy, service-role seulement),
+  `game_actions` (log append-only des intentions, `seq` = version).
+- **Écritures** : uniquement via les Route Handlers avec la clé service-role.
+  Chaque intention passe par le moteur (`reduce`) puis est persistée avec un
+  verrou optimiste sur `games.version` (conflit ⇒ 409, le client réessaie).
+- **Lectures** : `GET /api/games/[code]` renvoie la vue *redacted* du moteur
+  (mains adverses → compteurs, pioche → compteur, seed jamais exposé).
+- **Realtime** : les clients s'abonnent aux UPDATE de `games` et de
+  `game_players` ; tout changement de version déclenche un refetch de la vue.
+  Aucun état ne transite par le canal Realtime.
+- **Fenêtre de Refus (8 s)** : si la cible ne répond pas, n'importe quel joueur
+  peut appeler `CLAIM_TIMEOUT` ; le serveur vérifie le délai (via `updated_at`)
+  et accepte au nom des retardataires. Timeout = acceptation.
+- **Reconnexion** : re-`join` idempotent + état reconstruit côté serveur
+  (snapshot, et log `game_actions` rejouable par `replay()` du moteur).
+
+### Mise en route Supabase
+
+1. Crée un projet sur supabase.com, puis exécute
+   `supabase/migrations/20260810120000_init.sql` (SQL Editor ou `supabase db push`).
+2. Active l'auth anonyme : Authentication → Providers → Anonymous sign-ins.
+3. Copie `.env.example` vers `.env.local` et remplis les 3 clés (Settings → API).
+   Sur Vercel : mêmes variables dans les réglages du projet.
 
 ## Tests
 
