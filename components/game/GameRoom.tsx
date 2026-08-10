@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 
 import { JoinForm } from '@/components/lobby/JoinForm';
 import { WaitingRoom } from '@/components/lobby/WaitingRoom';
+import { TableView } from '@/components/table/TableView';
 import { Button } from '@/components/ui/Button';
 import { usePresence } from '@/lib/client/presence';
 import { useGameStore } from '@/lib/client/store';
@@ -91,16 +92,5 @@ export function GameRoom({ code }: { code: string }) {
 
   if (view.game.status === 'lobby') return <WaitingRoom view={view} />;
 
-  // Étape 4 : la table de jeu prend la place de cet écran.
-  return (
-    <Centered>
-      <p className="text-xs font-bold uppercase tracking-widest text-muted">
-        Partie {view.game.code} — {view.game.phase}
-      </p>
-      <p className="text-lg font-bold">La table arrive à l’étape 4.</p>
-      <p className="text-sm text-muted">
-        {view.players.length} joueurs · {view.state?.deckCount ?? 0} cartes en pioche
-      </p>
-    </Centered>
-  );
+  return <TableView view={view} />;
 }

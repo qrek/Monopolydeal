@@ -78,6 +78,37 @@ supabase/migrations/   schéma SQL versionné
   à `false` via `sendBeacon` au départ — de quoi distinguer « absent » de « en
   train de recharger ». Purement cosmétique : rien n'en dépend côté règles.
 
+## Table de jeu (étape 4)
+
+Statique pour l'instant : tout est en lecture seule, les interactions arrivent
+à l'étape 5.
+
+- **Disposition** : le joueur en bas, les adversaires au-dessus dans l'ordre du
+  tour (le premier est celui qui joue après nous). Sur mobile ils tiennent en
+  deux colonnes — à 4 adversaires, tout le monde reste visible sans défilement.
+- **Adversaire** : cartes en main comptées (la vue serveur ne contient jamais
+  leur contenu), total de banque avec le détail carte par carte au survol, lots
+  avec leur complétion (`2/3`) et leurs constructions.
+- **Progression** : les lots complets sont figurés par des jetons plutôt qu'un
+  `1/3` — un compteur numérique voisinait avec les `2/3` de complétion des lots
+  et disait autre chose au même endroit.
+- **Compteur d'actions** : trois pastilles qui s'éteignent, à hauteur du pouce.
+- **Main en éventail** : le pas et l'inclinaison sont calculés d'après la
+  largeur réelle (`ResizeObserver`), débordement d'inclinaison compris, pour que
+  l'éventail tienne à 375 px sans rogner une carte.
+- **Journal** : colonne fixe à partir de `lg`, feuille glissante sur mobile.
+
+### Cartes
+
+`components/cards/CardFace.tsx` rend les six familles (argent, propriété, joker
+bicolore, joker universel, action, loyer) à partir d'une seule mesure, `width` :
+la hauteur suit le ratio 5:7 et la police est proportionnelle, si bien que les
+mêmes composants servent à la main (96 px), aux lots (54 px) et aux lots
+adverses (36 px). Le niveau de détail se dégrade avec la taille — en dessous de
+80 px le nom de la couleur et la pastille de valeur disparaissent, car dans un
+lot les cartes se chevauchent et la même mention répétée trois fois n'est que du
+bruit. Les pictogrammes des 10 actions sont des SVG inline (`ActionGlyph`).
+
 ### Direction artistique
 
 Aplats francs, coins arrondis, une seule typo (Outfit) du 400 au 800 — la
