@@ -12,6 +12,8 @@
 
 import 'server-only';
 
+import { after } from 'next/server';
+
 import {
   JUST_SAY_NO_WINDOW_MS,
   MAX_PLAYERS,
@@ -143,6 +145,39 @@ function statusOf(state: GameState): GameRow['status'] {
   return 'active';
 }
 
+/**
+ * Prévient les clients qu'il faut recharger la vue.
+ *
+ * On passe par le Broadcast Realtime et non par `postgres_changes` : ce dernier
+ * décode le WAL et rejoue la RLS pour chaque abonné, et il a cessé de livrer au
+ * bout de deux événements lors des mesures — l'abonnement restait « joined »
+ * mais plus rien n'arrivait, laissant l'adversaire figé jusqu'à ce qu'il agisse
+ * lui-même. Le Broadcast est un simple pub/sub : aucun état de jeu n'y transite,
+ * seulement « la version a changé ».
+ *
+ * L'envoi est confié à `after` : celui qui vient de jouer a déjà son état dans
+ * la réponse, il n'a aucune raison d'attendre que les autres soient prévenus.
+ */
+function notify(gameId: string, version: number): void {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return;
+  after(async () => {
+    try {
+      await fetch(`${url}/realtime/v1/api/broadcast`, {
+        method: 'POST',
+        headers: { apikey: key, authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ topic: `game-${gameId}`, event: 'sync', payload: { version } }],
+        }),
+      });
+    } catch {
+      // Le signal est un confort : les clients ont un filet de sécurité qui
+      // recharge périodiquement. Une notification perdue ne bloque pas la partie.
+    }
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Création & lobby
 // ---------------------------------------------------------------------------
@@ -224,6 +259,7 @@ export async function joinRoom(
     seat,
   });
   if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  notify(game.id, game.version);
   return { gameId: game.id };
 }
 
@@ -317,6 +353,19 @@ function runEngine(
       applied.push({ action: auto, actorId: null });
     }
   }
+
+  // La pioche de début de tour n'est pas un choix : le client la déclenchait
+  // aussitôt, ce qui coûtait un aller-retour complet à chaque changement de
+  // main. On la joue ici, dans la même requête.
+  if (cur.phase === 'DRAW' && cur.players.length > 0) {
+    const next = cur.players[cur.turnIndex];
+    if (next) {
+      const draw: GameAction = { type: 'DRAW', playerId: next.id };
+      cur = reduce(cur, draw);
+      applied.push({ action: draw, actorId: null });
+    }
+  }
+
   return { actions: applied, state: cur };
 }
 
@@ -359,6 +408,8 @@ async function persist(
   ]);
   if (stateWrite.error) throw new ApiError(500, 'DB_ERROR', stateWrite.error.message);
   if (logWrite.error) throw new ApiError(500, 'DB_ERROR', logWrite.error.message);
+
+  notify(game.id, newVersion);
 }
 
 function toApiError(e: unknown): never {
@@ -486,6 +537,7 @@ export async function abortGame(code: string, userId: string): Promise<void> {
     .update({ status: 'finished', phase: 'GAME_OVER', version: game.version + 1 })
     .eq('id', game.id);
   if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+  notify(game.id, game.version + 1);
 }
 
 /** Marque un joueur (dé)connecté — piloté par la présence Realtime du client. */

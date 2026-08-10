@@ -125,7 +125,9 @@ export function TableView({ view }: { view: GameView }) {
     refresh,
   );
 
-  // Début de tour : la pioche est automatique, elle n'est jamais un choix.
+  // Début de tour : la pioche est automatique, elle n'est jamais un choix. Le
+  // serveur la joue désormais dans la foulée du coup précédent — ce filet ne
+  // sert plus qu'aux parties commencées avant, restées figées en phase DRAW.
   const drawn = useRef<string | null>(null);
   useEffect(() => {
     if (!state || !myTurn || state.phase !== 'DRAW') return;

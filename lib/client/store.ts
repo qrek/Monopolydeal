@@ -47,6 +47,19 @@ interface GameStore {
 let subscription: GameSubscription | null = null;
 let subscribedTo: string | null = null;
 
+/**
+ * Empreinte de tout ce qui peut changer sans passer par le moteur. Le rappel
+ * périodique relit la vue souvent ; sans cette comparaison il remplacerait un
+ * objet identique et ferait redessiner toute la table pour rien.
+ */
+function signatureOf(v: GameView): string {
+  return [
+    v.game.version,
+    v.game.status,
+    v.players.map((p) => `${p.user_id}:${p.name}:${p.connected ? 1 : 0}`).join(','),
+  ].join('|');
+}
+
 function messageOf(e: unknown): string {
   return e instanceof RequestError ? e.message : 'Connexion impossible';
 }
@@ -105,9 +118,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!code) return;
     try {
       const view = await api.getView(code);
+      const cur = get().view;
+      if (cur && signatureOf(cur) === signatureOf(view)) {
+        if (get().status !== 'ready') set({ status: 'ready' });
+        return;
+      }
       set({ view, status: 'ready' });
     } catch {
-      // Erreur transitoire : le prochain événement Realtime relancera un fetch.
+      // Erreur transitoire : le prochain signal ou le prochain rappel réessaiera.
     }
   },
 

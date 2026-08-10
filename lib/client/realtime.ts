@@ -1,7 +1,19 @@
 /**
  * Abonnement Realtime d'une partie. Le client ne reçoit jamais d'état par ce
- * canal : il apprend seulement que `games.version` (ou le lobby) a changé, et
- * refetch la vue filtrée via l'API. Le serveur reste la seule source de vérité.
+ * canal : il apprend seulement que la version a changé, et refetch la vue
+ * filtrée via l'API. Le serveur reste la seule source de vérité.
+ *
+ * On écoute une diffusion (« broadcast ») émise par le serveur après chaque
+ * écriture, et non les `postgres_changes` de la table `games` : mesuré sur le
+ * déploiement, le flux de réplication cessait de livrer après deux événements
+ * alors que le canal se déclarait toujours `joined`. Le joueur d'en face ne
+ * voyait alors plus rien jusqu'à ce qu'il agisse lui-même — c'est ce qui
+ * donnait ce long silence entre deux tours.
+ *
+ * Deux filets sous le canal, car une partie ne doit jamais rester figée :
+ *   — un rappel périodique discret,
+ *   — un rappel au retour de l'onglet au premier plan (le canal meurt souvent
+ *     quand le téléphone se verrouille).
  */
 
 'use client';
@@ -14,36 +26,35 @@ export interface GameSubscription {
   unsubscribe: () => void;
 }
 
+/** Filet de sécurité : assez lâche pour ne pas peser, assez court pour sauver un tour. */
+const POLL_MS = 5000;
+
 export function subscribeToGame(
   gameId: string,
   onChange: () => void,
 ): GameSubscription {
   const supabase = browserClient();
+
   const channel: RealtimeChannel = supabase
     .channel(`game-${gameId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'games',
-        filter: `id=eq.${gameId}`,
-      },
-      onChange,
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'game_players',
-        filter: `game_id=eq.${gameId}`,
-      },
-      onChange,
-    )
+    .on('broadcast', { event: 'sync' }, () => onChange())
     .subscribe();
+
+  const poll = setInterval(() => {
+    // Inutile de recharger une table que personne ne regarde.
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    onChange();
+  }, POLL_MS);
+
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') onChange();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+
   return {
     unsubscribe: () => {
+      clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
       void supabase.removeChannel(channel);
     },
   };
