@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { isCancelledByChain, reduce, reduceAll } from './reduce.ts';
+import {
+  MAX_JSN_CHAIN,
+  isCancelledByChain,
+  reduce,
+  reduceAll,
+} from './reduce.ts';
 import {
   act,
   bank,
@@ -237,7 +242,7 @@ describe('Refus catégorique', () => {
     expect(out.actionsPlayed).toBe(1);
   });
 
-  it('peut être contré par un second Refus : l’action passe', () => {
+  it('peut être contré par un second Refus : l’action se résout aussitôt', () => {
     const s = newTable();
     hand(s, 'p1', [act('SLY_DEAL', 0), act('JUST_SAY_NO', 1)]);
     hand(s, 'p2', [act('JUST_SAY_NO', 0)]);
@@ -252,20 +257,19 @@ describe('Refus catégorique', () => {
       },
       { type: 'RESPOND_JUST_SAY_NO', playerId: 'p2', cardId: act('JUST_SAY_NO', 0) },
       { type: 'RESPOND_JUST_SAY_NO', playerId: 'p1', cardId: act('JUST_SAY_NO', 1) },
-      { type: 'RESPOND_ACCEPT', playerId: 'p2' },
     ]);
+    // La chaîne est au plafond : le vol est résolu sans nouvel « accepter ».
     expect(player(out, 'p1').groups[0]?.cards).toEqual([prop('green', 0)]);
+    expect(player(out, 'p2').groups).toHaveLength(0);
+    expect(out.phase).toBe('PLAY');
   });
 
-  it('chaîne de 3 Refus : parité impaire, l’action est annulée (cas 14)', () => {
-    // La spec dit « l'action passe » ; c'est incompatible avec la règle de chaîne
-    // (« la cible du Refus est le joueur qui vient de jouer »). On applique la
-    // parité : 1 Refus annule, 2 rétablissent, 3 annulent.
+  it('refuse un 3e Refus : la chaîne est plafonnée à 2 (cas 14)', () => {
     const s = newTable();
     hand(s, 'p1', [act('SLY_DEAL', 0), act('JUST_SAY_NO', 1)]);
     hand(s, 'p2', [act('JUST_SAY_NO', 0), act('JUST_SAY_NO', 2)]);
     group(s, 'p2', 'green', [prop('green', 0)]);
-    const out = reduceAll(s, [
+    const mid = reduceAll(s, [
       {
         type: 'PLAY_SLY_DEAL',
         playerId: 'p1',
@@ -275,18 +279,26 @@ describe('Refus catégorique', () => {
       },
       { type: 'RESPOND_JUST_SAY_NO', playerId: 'p2', cardId: act('JUST_SAY_NO', 0) },
       { type: 'RESPOND_JUST_SAY_NO', playerId: 'p1', cardId: act('JUST_SAY_NO', 1) },
-      { type: 'RESPOND_JUST_SAY_NO', playerId: 'p2', cardId: act('JUST_SAY_NO', 2) },
-      { type: 'RESPOND_ACCEPT', playerId: 'p1' },
     ]);
-    expect(player(out, 'p2').groups[0]?.cards).toEqual([prop('green', 0)]);
-    expect(out.discard).toHaveLength(4);
+    // Le 2e Refus a déjà résolu l'action : p2 garde son 2e Refus en main
+    // et n'a plus rien à contrer.
+    expect(mid.phase).toBe('PLAY');
+    expect(player(mid, 'p1').groups[0]?.cards).toEqual([prop('green', 0)]);
+    expect(player(mid, 'p2').hand).toContain(act('JUST_SAY_NO', 2));
+    expect(() =>
+      reduce(mid, {
+        type: 'RESPOND_JUST_SAY_NO',
+        playerId: 'p2',
+        cardId: act('JUST_SAY_NO', 2),
+      }),
+    ).toThrow();
   });
 
-  it('expose la règle de parité', () => {
+  it('expose la règle de parité, bornée par le plafond de 2', () => {
+    expect(MAX_JSN_CHAIN).toBe(2);
     expect(isCancelledByChain(0)).toBe(false);
     expect(isCancelledByChain(1)).toBe(true);
     expect(isCancelledByChain(2)).toBe(false);
-    expect(isCancelledByChain(3)).toBe(true);
   });
 
   it('refuse un Refus joué par quelqu’un qui n’est pas visé', () => {

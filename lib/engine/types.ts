@@ -150,7 +150,10 @@ export type TargetStatus =
 export interface PendingTarget {
   playerId: string;
   status: TargetStatus;
-  /** Cartes Refus catégorique jouées, dans l'ordre. Longueur impaire ⇒ action annulée. */
+  /**
+   * Cartes Refus catégorique jouées, dans l'ordre. Longueur impaire ⇒ action
+   * annulée. Plafonnée à MAX_JSN_CHAIN (2) : Refus puis contre-Refus, terminé.
+   */
   jsnChain: CardId[];
   /** Joueur à qui c'est le tour de répondre (jouer un Refus ou accepter). */
   responderId: string;

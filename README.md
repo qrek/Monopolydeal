@@ -63,10 +63,11 @@ chargé par l'application et pourra être supprimé.
 - **106 cartes.** Le tableau des actions du cahier des charges donnait
   Échange forcé ×4 (soit 35 actions / 107 cartes) ; la composition réelle du jeu
   est Échange forcé ×3, retenue ici : 34 actions, 106 cartes au total.
-- **Chaîne de Refus catégorique : parité.** Le cas limite 14 dit qu'une chaîne de
-  3 Refus laisse passer l'action, ce qui contredit la règle « la cible du Refus est
-  le joueur qui vient de jouer ». On applique la parité : 1 Refus annule, 2 rétablissent,
-  3 annulent (`isCancelledByChain`). Une ligne à inverser si le choix inverse est voulu.
+- **Chaîne de Refus catégorique plafonnée à 2** (décision produit, remplace le
+  « sans limite » de la spec) : la cible peut jouer un Refus (action annulée), la
+  source peut le contrer (action rétablie) et la chaîne s'arrête là — un 3e Refus
+  est illégal. Au 2e Refus l'action se résout immédiatement, sans attendre de
+  réponse supplémentaire (`MAX_JSN_CHAIN`, `isCancelledByChain`).
 
 ## Règles maison (non tranchées par le cahier des charges)
 

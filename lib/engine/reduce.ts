@@ -296,9 +296,13 @@ function settle(d: GameState): void {
 }
 
 /**
- * Parité de la chaîne de Refus : chaque Refus annule le coup précédent.
- * 1 Refus ⇒ action annulée, 2 ⇒ elle passe, 3 ⇒ annulée, etc.
+ * Chaîne de Refus catégorique, plafonnée à 2 : la cible peut jouer un Refus
+ * (action annulée), la source peut le contrer (action rétablie), et ça s'arrête
+ * là — un 3e Refus est illégal.
  */
+export const MAX_JSN_CHAIN = 2;
+
+/** Parité de la chaîne : 1 Refus ⇒ action annulée, 2 ⇒ elle passe. */
 export function isCancelledByChain(chainLength: number): boolean {
   return chainLength % 2 === 1;
 }
@@ -903,6 +907,12 @@ function handleJustSayNo(
   requirePhase(d, 'RESOLVING_ACTION', 'AWAITING_PAYMENT');
   const pending = d.pending as PendingAction;
   const t = findRespondingTarget(d, a.playerId, a.againstPlayerId);
+  if (t.jsnChain.length >= MAX_JSN_CHAIN) {
+    throw new RuleError(
+      'ILLEGAL_CARD',
+      `La chaîne de Refus est limitée à ${MAX_JSN_CHAIN}`,
+    );
+  }
   const p = player(d, a.playerId);
   requireActionCard(p, a.cardId, 'JUST_SAY_NO');
   takeFromHand(p, a.cardId);
@@ -918,6 +928,8 @@ function handleJustSayNo(
     cardId: a.cardId,
     againstId: against,
   });
+  // Chaîne au plafond : plus personne ne peut contrer, on résout tout de suite.
+  if (t.jsnChain.length >= MAX_JSN_CHAIN) finishResponse(d, t);
   settle(d);
 }
 
