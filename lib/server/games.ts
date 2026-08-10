@@ -289,7 +289,13 @@ export async function getGameView(
   let state: RedactedState | null = null;
   if (priv?.state) {
     state = redactFor(priv.state, userId);
-    state.events = state.events.slice(-EVENT_WINDOW);
+    // Une partie terminée envoie son journal entier : le résumé compte les
+    // tours, les paiements et les vols depuis le début, et une fenêtre
+    // tronquée lui ferait raconter n'importe quoi. Le coût ne se paie qu'une
+    // fois, quand plus personne ne joue.
+    if (game.status !== 'finished') {
+      state.events = state.events.slice(-EVENT_WINDOW);
+    }
   }
   return { game, players, state, viewerId: userId };
 }

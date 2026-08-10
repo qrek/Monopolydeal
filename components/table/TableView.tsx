@@ -30,6 +30,7 @@ import { usePlayController } from '@/components/play/usePlayController';
 import { ActionPips } from '@/components/table/ActionPips';
 import { BankRow } from '@/components/table/BankStack';
 import { GameLog } from '@/components/table/GameLog';
+import { GameSummary } from '@/components/table/GameSummary';
 import { HandFan } from '@/components/table/HandFan';
 import { OpponentBoard } from '@/components/table/OpponentBoard';
 import { OpponentSeat } from '@/components/table/OpponentSeat';
@@ -104,6 +105,7 @@ export function TableView({ view }: { view: GameView }) {
   const [logOpen, setLogOpen] = useState(false);
   /** Adversaire dont le plateau est ouvert en détail. */
   const [boardOf, setBoardOf] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const state = view.state;
   const ctl = usePlayController(view.game.code, view.viewerId, applyView);
@@ -139,6 +141,16 @@ export function TableView({ view }: { view: GameView }) {
     drawn.current = key;
     void ctl.send({ type: 'DRAW', playerId: view.viewerId });
   }, [state, myTurn, view.game.version, view.viewerId, ctl]);
+
+  // Fin de partie : on laisse d'abord passer la carte de victoire, puis le
+  // résumé s'ouvre. L'ouvrir aussitôt écraserait la seule seconde de fête.
+  const finished = view.game.status === 'finished';
+  const hasWinner = Boolean(state?.winnerId);
+  useEffect(() => {
+    if (!finished) return;
+    const id = setTimeout(() => setSummaryOpen(true), hasWinner ? 1800 : 300);
+    return () => clearTimeout(id);
+  }, [finished, hasWinner]);
 
   const nameOf = useMemo(
     () => (id: string) => state?.players.find((p) => p.id === id)?.name ?? 'Joueur',
@@ -233,18 +245,33 @@ export function TableView({ view }: { view: GameView }) {
                 {nameOf(state.winnerId)} gagne
               </span>
             )}
-            <ActionPips played={state.actionsPlayed} active={myTurn} />
-            <Button
-              block={false}
-              variant="secondary"
-              className="!min-h-7 px-2 text-xs"
-              disabled={!myTurn || (state.phase !== 'PLAY' && state.phase !== 'DRAW')}
-              loading={ctl.busy}
-              onClick={() => void ctl.send({ type: 'END_TURN', playerId: view.viewerId })}
-            >
-              Fin de tour
-            </Button>
-            {!over && <AbortButton code={view.game.code} />}
+            {/* Partie finie : « fin de tour » n'a plus de sens, et c'est le
+                résumé qu'on veut pouvoir rouvrir après avoir regardé la table. */}
+            {over ? (
+              <Button
+                block={false}
+                variant="secondary"
+                className="!min-h-7 px-2 text-xs"
+                onClick={() => setSummaryOpen(true)}
+              >
+                Résumé
+              </Button>
+            ) : (
+              <>
+                <ActionPips played={state.actionsPlayed} active={myTurn} />
+                <Button
+                  block={false}
+                  variant="secondary"
+                  className="!min-h-7 px-2 text-xs"
+                  disabled={!myTurn || (state.phase !== 'PLAY' && state.phase !== 'DRAW')}
+                  loading={ctl.busy}
+                  onClick={() => void ctl.send({ type: 'END_TURN', playerId: view.viewerId })}
+                >
+                  Fin de tour
+                </Button>
+                <AbortButton code={view.game.code} />
+              </>
+            )}
             <button
               onClick={() => setLogOpen((v) => !v)}
               className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
@@ -434,26 +461,18 @@ export function TableView({ view }: { view: GameView }) {
 
       {mustDiscard && !over && <DiscardModal me={me} ctl={ctl} />}
 
-      {/* Partie arrêtée sans vainqueur : c'est une interruption, pas une fin de
-          partie, et il faut une sortie explicite. */}
-      {over && !state.winnerId && (
-        <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/70 px-6">
-          <div className="panel flex max-w-sm flex-col items-center gap-3 px-6 py-5 text-center">
-            <p className="text-xl font-extrabold uppercase tracking-tight">
-              Partie interrompue
-            </p>
-            <p className="text-sm text-ink-soft">
-              Un joueur y a mis fin. Rien n’est perdu : vous pouvez en relancer
-              une nouvelle.
-            </p>
-            <Link
-              href="/"
-              className="mt-1 inline-flex min-h-11 items-center rounded-card border-2 border-ink bg-mono-red px-5 font-extrabold text-cream"
-            >
-              Retour à l’accueil
-            </Link>
-          </div>
-        </div>
+      {/* Fin de partie : classement, faits marquants et porte de sortie. Vaut
+          aussi pour une partie interrompue, où il n'y a rien à célébrer mais
+          où il faut d'autant plus une sortie explicite. */}
+      {over && summaryOpen && (
+        <GameSummary
+          players={state.players}
+          events={state.events}
+          winnerId={state.winnerId}
+          viewerId={view.viewerId}
+          aborted={!state.winnerId}
+          onClose={() => setSummaryOpen(false)}
+        />
       )}
     </div>
   );
