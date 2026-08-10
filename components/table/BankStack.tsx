@@ -42,12 +42,30 @@ export function BankDetail({ cards }: { cards: CardId[] }) {
 }
 
 /** Ma banque : les billets posés en éventail serré, montant lisible. */
-export const BankRow = memo(function BankRow({ cards, cardWidth }: { cards: CardId[]; cardWidth: number }) {
+export const BankRow = memo(function BankRow({
+  cards,
+  cardWidth,
+  maxWidth,
+}: {
+  cards: CardId[];
+  cardWidth: number;
+  /** Largeur disponible : au-delà, les billets se recouvrent davantage. */
+  maxWidth?: number;
+}) {
   if (cards.length === 0) {
     return <p className="py-1 text-[0.7rem] text-ink-soft">Banque vide</p>;
   }
-  // 62 % de révélation : assez pour que le montant, centré, reste entier.
-  const step = Math.round(cardWidth * 0.62);
+  // 62 % de révélation : assez pour que le montant, centré, reste entier. Une
+  // banque bien remplie se resserre plutôt que de pousser mes propriétés
+  // hors de l'écran, sans jamais descendre sous le coin lisible du billet.
+  const gaps = Math.max(1, cards.length - 1);
+  const step = Math.max(
+    Math.round(cardWidth * 0.2),
+    Math.min(
+      Math.round(cardWidth * 0.62),
+      maxWidth ? Math.floor((maxWidth - cardWidth) / gaps) : Infinity,
+    ),
+  );
   return (
     <div
       className="relative shrink-0"

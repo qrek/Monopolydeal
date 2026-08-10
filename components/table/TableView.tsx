@@ -232,15 +232,19 @@ export function TableView({ view }: { view: GameView }) {
           {/* Mon plateau, sur une seule rangée collée à ma main : propriétés à
               gauche, tapis au centre pour jouer une action, banque à droite.
               Les trois zones de dépôt sont les emplacements eux-mêmes. */}
+          {/* `items-stretch` et non `items-end` : alignées sur leur contenu, les
+              trois zones prenaient chacune une hauteur différente, et le tapis
+              — qui n'a pas de contenu — tombait à zéro pixel. Il était donc
+              invisible ET intouchable, au glisser comme à la tape. */}
           <section
             aria-label="Mon plateau"
-            className={`flex min-h-0 flex-1 items-end gap-2 ${shaken ? 'animate-shake' : ''}`}
+            className={`flex min-h-0 flex-1 items-stretch gap-2 ${shaken ? 'animate-shake' : ''}`}
           >
             <Zone
               ctl={ctl}
               dest="PROPERTY"
               active={playable}
-              className="min-w-0 flex-1 px-1 pb-0.5"
+              className="flex min-w-0 flex-1 flex-col justify-end px-1 pb-0.5"
             >
               <h2 className="board-label mb-0.5 flex items-center gap-1.5">
                 Mes propriétés
@@ -254,20 +258,47 @@ export function TableView({ view }: { view: GameView }) {
               />
             </Zone>
 
-            {/* Le tapis reste vide tant qu'on ne tient rien : il ne s'allume
-                qu'en cible « Jouer l'action », au centre, sous la main. */}
-            <Zone ctl={ctl} dest="ACTION" active={playable} className="min-w-0 flex-1" />
+            {/* Le tapis, au centre, sous la main : c'est là qu'on pousse une
+                carte action. Il porte une marque au repos, sinon rien ne dit
+                qu'il est là. */}
+            <Zone
+              ctl={ctl}
+              dest="ACTION"
+              active={playable}
+              className="flex shrink-0 flex-col items-center justify-end pb-0.5"
+              style={{ width: Math.round(scale.mine * 1.9) }}
+              hint={
+                // Plus large qu'une carte : la marque tient ses deux mots sans
+                // déborder, et le pouce a une cible confortable.
+                <span
+                  className={`grid w-full place-items-center rounded-card border-2 border-dashed border-ink/25 px-1 text-center text-[0.6rem] font-extrabold uppercase leading-tight tracking-tight text-ink/35 transition-opacity ${
+                    playable ? 'opacity-100' : 'opacity-40'
+                  }`}
+                  style={{ height: Math.round(scale.mine * 1.4) }}
+                >
+                  Jouer
+                  <br />
+                  l’action
+                </span>
+              }
+            />
 
             <Zone
               ctl={ctl}
               dest="BANK"
               active={playable}
-              className="shrink-0 px-1 pb-0.5"
+              className="flex shrink-0 flex-col justify-end px-1 pb-0.5"
             >
               <h2 className="board-label mb-0.5 text-right">
                 Ma banque · <span className="text-ink">{bankTotal(me)} M</span>
               </h2>
-              <BankRow cards={me.bank} cardWidth={scale.mine} />
+              <BankRow
+                cards={me.bank}
+                cardWidth={scale.mine}
+                // Une banque fournie ne doit pas repousser mes propriétés hors
+                // de l'écran : passé cette largeur, les billets se resserrent.
+                maxWidth={Math.round(viewport.width * 0.34)}
+              />
             </Zone>
           </section>
         </div>

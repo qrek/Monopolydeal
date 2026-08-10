@@ -28,6 +28,8 @@ export function Zone({
   dest,
   active,
   className = '',
+  style,
+  hint,
   children,
 }: {
   ctl: PlayController;
@@ -35,6 +37,14 @@ export function Zone({
   /** Faux hors de mon tour : la zone reste visible mais inerte. */
   active: boolean;
   className?: string;
+  style?: React.CSSProperties;
+  /**
+   * Marque au repos, pour les zones qui n'ont aucun contenu propre — le tapis
+   * n'était rien du tout tant qu'on ne tenait pas de carte, donc rien ne disait
+   * qu'on pouvait y jouer une action. Elle s'efface dès que le calque de dépôt
+   * prend le relais.
+   */
+  hint?: React.ReactNode;
   /** Absent pour le tapis : la zone n'est qu'une cible, sans contenu propre. */
   children?: React.ReactNode;
 }) {
@@ -45,6 +55,7 @@ export function Zone({
   return (
     <div
       ref={(el) => ctl.registerZone(dest, el)}
+      style={style}
       className={`relative rounded-panel transition-all duration-200 ${
         hovered
           ? 'bg-mono-red/15 ring-2 ring-mono-red'
@@ -54,6 +65,7 @@ export function Zone({
       } ${className}`}
     >
       {children}
+      {hint && !usable && hint}
 
       {usable && (
         <button
