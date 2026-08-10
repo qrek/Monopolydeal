@@ -6,6 +6,54 @@
   color-scheme: dark;
 }
 
-body {
-  @apply bg-table text-neutral-100 antialiased;
+@layer base {
+  body {
+    @apply bg-table text-ink antialiased;
+    /* Le feutre : une trame très discrète, en CSS pur, aucune image. */
+    background-image: radial-gradient(
+      120% 90% at 50% 0%,
+      #1a2b21 0%,
+      #0e1512 62%
+    );
+    background-attachment: fixed;
+    min-height: 100dvh;
+  }
+
+  /* Mobile-first : pas de zoom involontaire, pas de rebond de scroll sur la table. */
+  input,
+  button,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    @apply bg-gold text-table;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-gold ring-offset-2 ring-offset-table;
+  }
+}
+
+@layer components {
+  /* Panneau : la brique visuelle de base — aplat, bord clair, coins ronds. */
+  .panel {
+    @apply rounded-panel border border-white/10 bg-felt/80 shadow-panel backdrop-blur-sm;
+  }
+
+  .field {
+    @apply w-full rounded-card border border-white/10 bg-black/25 px-4 py-3
+           text-ink placeholder:text-muted/60 transition-colors
+           focus:border-gold/60;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

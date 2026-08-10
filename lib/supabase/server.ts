@@ -4,7 +4,7 @@
  * écritures se font avec le client admin.
  */
 
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 import { ApiError } from '@/lib/server/errors';
@@ -21,7 +21,9 @@ export async function authClient() {
   return createServerClient(url, key, {
     cookies: {
       getAll: () => store.getAll(),
-      setAll: (list) => {
+      setAll: (
+        list: Array<{ name: string; value: string; options: CookieOptions }>,
+      ) => {
         try {
           for (const { name, value, options } of list) {
             store.set(name, value, options);

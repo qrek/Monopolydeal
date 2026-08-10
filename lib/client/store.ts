@@ -2,6 +2,12 @@
  * Store Zustand : cache client de la vue serveur + plomberie de synchro.
  * Jamais une source de vérité — tout est dérivé de GET /api/games/[code],
  * rafraîchi quand le Realtime signale un changement de version.
+ *
+ * Cycle de vie d'un écran de partie :
+ *   attach(code)  → session anonyme, puis GET de la vue.
+ *                   403 NOT_A_PLAYER ⇒ statut `needs-join` (formulaire pseudo).
+ *   join(code, n) → POST join, puis attach.
+ *   detach()      → coupe l'abonnement Realtime.
  */
 
 'use client';
@@ -13,42 +19,81 @@ import { subscribeToGame, type GameSubscription } from '@/lib/client/realtime';
 import type { GameView } from '@/lib/server/games';
 import { ensureSession } from '@/lib/supabase/client';
 
+export type ConnectionStatus =
+  | 'idle'
+  /** Session + première lecture en cours. */
+  | 'loading'
+  /** La partie existe mais on n'en fait pas partie : il faut choisir un pseudo. */
+  | 'needs-join'
+  /** Vue chargée et abonnement Realtime actif. */
+  | 'ready'
+  | 'error';
+
 interface GameStore {
-  view: GameView | null;
   code: string | null;
-  loading: boolean;
+  view: GameView | null;
+  status: ConnectionStatus;
   error: string | null;
-  /** Rejoint (ou re-rejoint) la partie puis maintient la vue à jour. */
-  connect: (code: string, name: string) => Promise<void>;
+  /** Code d'erreur API brut, pour distinguer 404 / partie démarrée / complète. */
+  errorCode: string | null;
+  attach: (code: string) => Promise<void>;
+  join: (code: string, name: string) => Promise<void>;
   refresh: () => Promise<void>;
-  disconnect: () => void;
+  detach: () => void;
 }
 
 let subscription: GameSubscription | null = null;
+let subscribedTo: string | null = null;
+
+function messageOf(e: unknown): string {
+  return e instanceof RequestError ? e.message : 'Connexion impossible';
+}
+
+function codeOf(e: unknown): string {
+  return e instanceof RequestError ? e.code : 'NETWORK';
+}
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  view: null,
   code: null,
-  loading: false,
+  view: null,
+  status: 'idle',
   error: null,
+  errorCode: null,
 
-  connect: async (code, name) => {
-    set({ loading: true, error: null, code });
+  attach: async (code) => {
+    set({ code, status: 'loading', error: null, errorCode: null });
     try {
       await ensureSession();
-      const { gameId } = await api.joinGame(code, name);
       const view = await api.getView(code);
-      subscription?.unsubscribe();
-      subscription = subscribeToGame(gameId, () => {
-        void get().refresh();
-      });
-      set({ view, loading: false });
+
+      // Un seul abonnement par partie : attach() est ré-appelé après un join.
+      if (subscribedTo !== view.game.id) {
+        subscription?.unsubscribe();
+        subscribedTo = view.game.id;
+        subscription = subscribeToGame(view.game.id, () => {
+          void get().refresh();
+        });
+      }
+      set({ view, status: 'ready' });
     } catch (e) {
-      const message =
-        e instanceof RequestError ? e.message : 'Connexion impossible';
-      set({ error: message, loading: false });
-      throw e;
+      if (e instanceof RequestError && e.code === 'NOT_A_PLAYER') {
+        set({ status: 'needs-join', view: null });
+        return;
+      }
+      set({ status: 'error', error: messageOf(e), errorCode: codeOf(e) });
     }
+  },
+
+  join: async (code, name) => {
+    set({ code, status: 'loading', error: null, errorCode: null });
+    try {
+      await ensureSession();
+      await api.joinGame(code, name);
+    } catch (e) {
+      set({ status: 'error', error: messageOf(e), errorCode: codeOf(e) });
+      return;
+    }
+    await get().attach(code);
   },
 
   refresh: async () => {
@@ -56,15 +101,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (!code) return;
     try {
       const view = await api.getView(code);
-      set({ view });
+      set({ view, status: 'ready' });
     } catch {
       // Erreur transitoire : le prochain événement Realtime relancera un fetch.
     }
   },
 
-  disconnect: () => {
+  detach: () => {
     subscription?.unsubscribe();
     subscription = null;
-    set({ view: null, code: null, error: null });
+    subscribedTo = null;
+    set({ view: null, code: null, status: 'idle', error: null, errorCode: null });
   },
 }));

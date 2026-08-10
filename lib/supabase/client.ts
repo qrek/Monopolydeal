@@ -11,12 +11,28 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 let cached: SupabaseClient | null = null;
 
+/**
+ * Les variables NEXT_PUBLIC_* sont inlinées au build : si le déploiement n'est
+ * pas configuré, autant l'afficher franchement plutôt que planter à la
+ * première requête.
+ */
+export function isSupabaseConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
 export function browserClient(): SupabaseClient {
   if (cached) return cached;
-  cached = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
-  );
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_URL et NEXT_PUBLIC_SUPABASE_ANON_KEY sont requis (voir .env.example)',
+    );
+  }
+  cached = createBrowserClient(url, key);
   return cached;
 }
 
