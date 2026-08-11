@@ -11,17 +11,15 @@
 import { useState } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
-import { COLORS, MAX_ACTIONS_PER_TURN } from '@/lib/engine';
+import { COLORS, MAX_ACTIONS_PER_TURN, rulesFor, type GameMode } from '@/lib/engine';
 import {
   ACTION_TABLE,
-  CHAPTERS,
-  RENT_TABLE,
+  chaptersFor,
+  rentTable,
   sizeLabel,
+  type RentRow,
   type RuleChapter,
 } from '@/lib/ui/rules';
-
-/** Le plus long lot du jeu fixe le nombre de colonnes du tableau. */
-const MAX_SIZE = Math.max(...RENT_TABLE.map((r) => r.size));
 
 function Heading({ children }: { children: React.ReactNode }) {
   return (
@@ -62,7 +60,9 @@ function Chapter({ chapter }: { chapter: RuleChapter }) {
  * possédée : c'est la lecture qu'on fait avant de réclamer, « j'en ai deux,
  * ça vaut combien ».
  */
-function RentTable() {
+function RentTable({ rows }: { rows: RentRow[] }) {
+  // Le plus long lot du mode fixe le nombre de colonnes.
+  const MAX_SIZE = Math.max(...rows.map((r) => r.size));
   return (
     <section id="regle-bareme" className="scroll-mt-2">
       <Heading>Barème des loyers</Heading>
@@ -80,7 +80,7 @@ function RentTable() {
             </tr>
           </thead>
           <tbody>
-            {RENT_TABLE.map((row) => (
+            {rows.map((row) => (
               <tr key={row.color} className="border-t border-ink/10">
                 <td className="py-1 pr-2">
                   <span className="flex items-center gap-1.5">
@@ -160,20 +160,21 @@ function ActionTable() {
   );
 }
 
-const SOMMAIRE: Array<{ id: string; label: string }> = [
-  { id: 'bareme', label: 'Barème' },
-  ...CHAPTERS.map((c) => ({ id: c.id, label: c.title })),
-  { id: 'actions', label: 'Actions' },
-];
-
-export function RulesBook() {
+export function RulesBook({ mode = 'CLASSIC' }: { mode?: GameMode }) {
+  const chapitres = chaptersFor(mode);
+  const rows = rentTable(mode);
+  const sommaire = [
+    { id: 'bareme', label: 'Barème' },
+    ...chapitres.map((c) => ({ id: c.id, label: c.title })),
+    { id: 'actions', label: 'Actions' },
+  ];
   return (
     <div className="flex flex-col gap-5">
       {/* Une seule rangée qui défile : sur un téléphone en paysage, la modale
           n'a que 340 px de haut et un sommaire sur deux lignes en mangeait le
           quart avant la première règle. */}
       <nav className="no-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
-        {SOMMAIRE.map((s) => (
+        {sommaire.map((s) => (
           <a
             key={s.id}
             href={`#regle-${s.id}`}
@@ -184,8 +185,8 @@ export function RulesBook() {
         ))}
       </nav>
 
-      <RentTable />
-      {CHAPTERS.map((c) => (
+      <RentTable rows={rows} />
+      {chapitres.map((c) => (
         <Chapter key={c.id} chapter={c} />
       ))}
       <ActionTable />
@@ -207,10 +208,12 @@ export function RulesButton({
   className = '',
   label = 'Règles',
   title = 'Règles du jeu',
+  mode = 'CLASSIC',
 }: {
   className?: string;
   label?: string;
   title?: string;
+  mode?: GameMode;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -226,10 +229,10 @@ export function RulesButton({
       <Modal
         open={open}
         title={title}
-        subtitle="Aide-mémoire — le moteur reste l’arbitre"
+        subtitle={`${rulesFor(mode).label} — le moteur reste l’arbitre`}
         onClose={() => setOpen(false)}
       >
-        <RulesBook />
+        <RulesBook mode={mode} />
       </Modal>
     </>
   );

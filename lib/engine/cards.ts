@@ -11,6 +11,7 @@ import type {
   Card,
   CardId,
   Color,
+  GameMode,
   PropertyGroup,
 } from './types.ts';
 
@@ -48,6 +49,12 @@ export const COLORS: Record<Color, ColorConfig> = {
   darkblue: { size: 2, rents: [3, 8], value: 4, label: 'Bleu nuit', hex: '#0072BB', buildable: true },
   black: { size: 4, rents: [1, 2, 3, 4], value: 2, label: 'Gares', hex: '#1A1A1A', buildable: false },
   turquoise: { size: 2, rents: [1, 2], value: 2, label: 'Compagnies', hex: '#8FD4A8', buildable: false },
+  // Trois cartes seulement pour le loyer le plus élevé du jeu : le lot court
+  // et cher, celui qu'on peut réunir vite et perdre d'un coup.
+  airport: { size: 3, rents: [2, 4, 7], value: 4, label: 'Aéroports', hex: '#4E7A8A', buildable: false },
+  // Quatre cartes pour un loyer moyen : le lot du patient, qu'on complète
+  // pendant que les autres se battent ailleurs.
+  metro: { size: 4, rents: [1, 2, 3, 5], value: 2, label: 'Métro', hex: '#6D4C9F', buildable: false },
 };
 
 export const ALL_COLORS: Color[] = Object.keys(COLORS) as Color[];
@@ -71,6 +78,8 @@ const PROPERTY_NAMES: Record<Color, string[]> = {
   darkblue: ['Avenue des Champs-Élysées', 'Rue de la Paix'],
   black: ['Gare Montparnasse', 'Gare de Lyon', 'Gare du Nord', 'Gare Saint-Lazare'],
   turquoise: ['Compagnie de distribution des eaux', 'Compagnie d’électricité'],
+  airport: ['Roissy — Charles-de-Gaulle', 'Orly', 'Beauvais-Tillé'],
+  metro: ['Ligne 1', 'Ligne 4', 'Ligne 6', 'Ligne 14'],
 };
 
 // ---------------------------------------------------------------------------
@@ -122,6 +131,8 @@ const WILD_COMPOSITION: Array<[colors: [Color, Color], qty: number]> = [
   [['orange', 'pink'], 2],
   [['red', 'yellow'], 2],
   [['green', 'darkblue'], 1],
+  // Réservé aux modes étendus : les deux familles de transports modernes.
+  [['metro', 'airport'], 1],
 ];
 
 const WILD_ANY_QTY = 2;
@@ -132,6 +143,7 @@ const RENT_PAIRS: Array<[Color, Color]> = [
   ['red', 'yellow'],
   ['green', 'darkblue'],
   ['black', 'turquoise'],
+  ['metro', 'airport'],
 ];
 
 const RENT_PAIR_QTY = 2;
@@ -232,10 +244,46 @@ function buildDeck(): Card[] {
   return cards;
 }
 
-export const DECK_COMPOSITION: readonly Card[] = Object.freeze(buildDeck());
+/**
+ * Le catalogue : toutes les cartes de tous les modes. Un deck de partie n'en
+ * distribue qu'un sous-ensemble, mais `getCard` doit connaître les autres —
+ * une carte reste lisible dans un journal ou un résumé même si le mode courant
+ * ne la joue pas.
+ */
+const CATALOGUE: readonly Card[] = Object.freeze(buildDeck());
+
+/** Familles réservées aux modes étendus. */
+const EXTENDED: readonly Color[] = ['airport', 'metro'];
+
+function isExtended(card: Card): boolean {
+  if (card.kind === 'PROPERTY') return EXTENDED.includes(card.color);
+  if (card.kind === 'WILD') return card.colors.some((c) => EXTENDED.includes(c));
+  // Le loyer universel couvre toutes les couleurs par définition : il reste
+  // dans le deck classique, où il ne pourra simplement viser aucune des deux.
+  if (card.kind === 'RENT' && !card.universal) {
+    return card.colors.some((c) => EXTENDED.includes(c));
+  }
+  return false;
+}
+
+/** Composition d'un deck de partie, selon le mode. */
+export function deckFor(mode: GameMode): readonly Card[] {
+  if (mode === 'CLASSIC') return CATALOGUE.filter((c) => !isExtended(c));
+  return CATALOGUE;
+}
+
+/** Les couleurs réellement distribuées dans ce mode. */
+export function colorsFor(mode: GameMode): Color[] {
+  return mode === 'CLASSIC'
+    ? ALL_COLORS.filter((c) => !EXTENDED.includes(c))
+    : [...ALL_COLORS];
+}
+
+/** Le deck classique, tel que verrouillé par les tests de composition. */
+export const DECK_COMPOSITION: readonly Card[] = Object.freeze(deckFor('CLASSIC'));
 
 export const CARDS: Readonly<Record<CardId, Card>> = Object.freeze(
-  Object.fromEntries(DECK_COMPOSITION.map((c) => [c.id, c])),
+  Object.fromEntries(CATALOGUE.map((c) => [c.id, c])),
 );
 
 export function getCard(id: CardId): Card {
@@ -245,8 +293,8 @@ export function getCard(id: CardId): Card {
 }
 
 /** Ids du deck neuf, dans l'ordre canonique (avant mélange). */
-export function freshDeckIds(): CardId[] {
-  return DECK_COMPOSITION.map((c) => c.id);
+export function freshDeckIds(mode: GameMode = 'CLASSIC'): CardId[] {
+  return deckFor(mode).map((c) => c.id);
 }
 
 // ---------------------------------------------------------------------------

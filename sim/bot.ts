@@ -26,6 +26,7 @@ import {
   type CardId,
   type Color,
   type GameAction,
+  type GameMode,
   type GameState,
   type PlayerState,
 } from '../lib/engine/index.ts';
@@ -48,6 +49,8 @@ export interface Rules {
   secondPlayerBonus: number;
   /** Le premier joueur ne joue que 2 cartes à son premier tour. */
   firstTurnHandicap: boolean;
+  /** Mode réellement passé au moteur : deck et compensation inclus. */
+  mode: GameMode;
 }
 
 export const BASE: Rules = {
@@ -57,6 +60,7 @@ export const BASE: Rules = {
   market: 0,
   secondPlayerBonus: 0,
   firstTurnHandicap: false,
+  mode: 'CLASSIC',
 };
 
 export const DUEL: Rules = {
@@ -66,12 +70,16 @@ export const DUEL: Rules = {
   market: 5,
   secondPlayerBonus: 0,
   firstTurnHandicap: false,
+  mode: 'CLASSIC',
 };
 
 /** Compensations du second joueur, testées séparément. */
 export const ONLY_BONUS1: Rules = { ...BASE, secondPlayerBonus: 1 };
 export const ONLY_BONUS2: Rules = { ...BASE, secondPlayerBonus: 2 };
 export const ONLY_HANDICAP: Rules = { ...BASE, firstTurnHandicap: true };
+/** Le mode DUEL tel qu'il est réellement implémenté dans le moteur. */
+export const DUEL_MOTEUR: Rules = { ...BASE, mode: 'DUEL' };
+
 /** Le duel corrigé : on garde ce qui marche, on jette ce qui nuit. */
 export const DUEL_V2: Rules = {
   ...BASE,
@@ -354,6 +362,7 @@ export function playGame(seed: string, rules: Rules): Outcome {
     createGame({
       id: 'sim',
       seed,
+      mode: rules.mode,
       players: [
         { id: 'A', name: 'A' },
         { id: 'B', name: 'B' },

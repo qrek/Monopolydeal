@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BASE,
   DUEL,
+  DUEL_MOTEUR,
   DUEL_V2,
   ONLY_BONUS1,
   ONLY_BONUS2,
@@ -66,6 +67,7 @@ describe('Banc duel', () => {
       bench('+2e joueur +2', ONLY_BONUS2),
       bench('+1er tour -1', ONLY_HANDICAP),
       bench('DUEL v2', DUEL_V2),
+      bench('MOTEUR duel', DUEL_MOTEUR),
     ];
     expect(r.every((x) => x.n > 0)).toBe(true);
   }, 900_000);

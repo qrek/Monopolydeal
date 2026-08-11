@@ -171,12 +171,14 @@ function ColorPrompt({
 
   const send = (payload: { groupId?: string; color?: Color; newGroup?: boolean }) => {
     ctl.closePrompt();
-    void ctl.send({
-      type: move ? 'MOVE_WILD' : 'PLAY_PROPERTY',
-      playerId: me.id,
-      cardId,
-      ...payload,
-    });
+    // Deux envois explicites plutôt qu'un `type` calculé : au-delà d'une
+    // vingtaine de combinaisons, TypeScript renonce à discriminer une union
+    // dont plusieurs propriétés sont elles-mêmes des unions, et le catalogue
+    // de couleurs vient de franchir ce seuil.
+    const base = { playerId: me.id, cardId, ...payload };
+    void ctl.send(
+      move ? { type: 'MOVE_WILD', ...base } : { type: 'PLAY_PROPERTY', ...base },
+    );
   };
 
   return (

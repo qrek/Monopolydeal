@@ -14,16 +14,16 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { api, RequestError } from '@/lib/client/api';
 import { useGameStore } from '@/lib/client/store';
-import { MAX_PLAYERS, MIN_PLAYERS } from '@/lib/engine';
+import { rulesFor } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
 
-function seatHint(count: number): string {
-  if (count < MIN_PLAYERS) {
-    const missing = MIN_PLAYERS - count;
+function seatHint(count: number, min: number, max: number): string {
+  if (count < min) {
+    const missing = min - count;
     return `Il manque ${missing} joueur${missing > 1 ? 's' : ''} pour commencer.`;
   }
-  if (count >= MAX_PLAYERS) return 'La table est complète.';
-  return `Tu peux lancer, ou attendre jusqu’à ${MAX_PLAYERS} joueurs.`;
+  if (count >= max) return 'La table est complète.';
+  return `Tu peux lancer, ou attendre jusqu’à ${max} joueurs.`;
 }
 
 export function WaitingRoom({ view }: { view: GameView }) {
@@ -33,7 +33,9 @@ export function WaitingRoom({ view }: { view: GameView }) {
 
   const { game, players, viewerId } = view;
   const isHost = game.host_id === viewerId;
-  const canStart = players.length >= MIN_PLAYERS && players.length <= MAX_PLAYERS;
+  // Le nombre de sièges dépend du mode : un duel n'en a que deux.
+  const { minPlayers, maxPlayers } = rulesFor(game.mode);
+  const canStart = players.length >= minPlayers && players.length <= maxPlayers;
   const host = players.find((p) => p.user_id === game.host_id);
 
   const start = async () => {
@@ -64,10 +66,14 @@ export function WaitingRoom({ view }: { view: GameView }) {
           <RulesButton
             className="text-xs font-bold uppercase tracking-widest text-ink-soft transition-colors hover:text-ink"
             label="Règles"
+            mode={game.mode}
           />
         </div>
         <p className="text-xs font-bold uppercase tracking-widest text-ink-soft">
           Code de la partie
+        </p>
+        <p className="rounded-card border-2 border-ink bg-cream px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-ink shadow-card">
+          {rulesFor(game.mode).label}
         </p>
         <CodeTiles code={game.code} />
         <div className="w-full max-w-xs">
@@ -79,7 +85,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
         <h2 className="mb-4 flex items-baseline justify-between text-sm font-bold uppercase tracking-widest text-ink-soft">
           Joueurs
           <span className="tabular-nums text-ink">
-            {players.length}/{MAX_PLAYERS}
+            {players.length}/{maxPlayers}
           </span>
         </h2>
 
@@ -110,7 +116,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
           ))}
 
           {/* Sièges libres : on voit d'un coup d'œil ce qu'il reste. */}
-          {Array.from({ length: MAX_PLAYERS - players.length }, (_, i) => (
+          {Array.from({ length: Math.max(0, maxPlayers - players.length) }, (_, i) => (
             <li
               key={`empty-${i}`}
               className="flex items-center gap-3 rounded-card border border-dashed border-ink/25 px-3 py-2.5"
@@ -123,7 +129,7 @@ export function WaitingRoom({ view }: { view: GameView }) {
       </section>
 
       <footer className="animate-fade-up space-y-3">
-        <p className="text-center text-sm text-ink-soft">{seatHint(players.length)}</p>
+        <p className="text-center text-sm text-ink-soft">{seatHint(players.length, minPlayers, maxPlayers)}</p>
         {isHost ? (
           <Button onClick={() => void start()} disabled={!canStart} loading={starting}>
             Lancer la partie

@@ -7,6 +7,7 @@ import {
   COLORS,
   DECK_COMPOSITION,
   canBank,
+  colorsFor,
   freshDeckIds,
   getCard,
 } from './cards.ts';
@@ -35,7 +36,8 @@ describe('Composition du deck', () => {
   });
 
   it('a autant de propriétés par couleur que la taille du lot', () => {
-    for (const color of ALL_COLORS) {
+    // Le deck classique ne distribue pas les familles étendues.
+    for (const color of colorsFor('CLASSIC')) {
       const n = ofKind('PROPERTY').filter(
         (c) => c.kind === 'PROPERTY' && c.color === color,
       ).length;
@@ -77,7 +79,40 @@ describe('Composition du deck', () => {
   it("n'a aucun id dupliqué", () => {
     const ids = freshDeckIds();
     expect(new Set(ids).size).toBe(ids.length);
-    expect(Object.keys(CARDS)).toHaveLength(ids.length);
+    // Le catalogue contient les cartes de TOUS les modes : il est plus large
+    // que le deck classique, jamais plus étroit.
+    expect(Object.keys(CARDS).length).toBeGreaterThanOrEqual(ids.length);
+    const duel = freshDeckIds('DUEL');
+    expect(new Set(duel).size).toBe(duel.length);
+    expect(Object.keys(CARDS)).toHaveLength(duel.length);
+  });
+
+  it('le deck duel ajoute les aéroports et le métro au deck classique', () => {
+    const classique = new Set(freshDeckIds('CLASSIC'));
+    const duel = freshDeckIds('DUEL');
+    expect(duel.length).toBeGreaterThan(classique.size);
+    for (const id of classique) expect(duel).toContain(id);
+
+    const extra = duel.filter((id) => !classique.has(id)).map(getCard);
+    // 3 aéroports + 4 lignes de métro + 1 joker bicolore + 2 quittances.
+    expect(extra.filter((c) => c.kind === 'PROPERTY')).toHaveLength(7);
+    expect(extra.filter((c) => c.kind === 'WILD')).toHaveLength(1);
+    expect(extra.filter((c) => c.kind === 'RENT')).toHaveLength(2);
+  });
+
+  it('aucune couleur étendue ne traîne dans le deck classique', () => {
+    for (const id of freshDeckIds('CLASSIC')) {
+      const card = getCard(id);
+      if (card.kind === 'PROPERTY') {
+        expect(['airport', 'metro']).not.toContain(card.color);
+      }
+      if (card.kind === 'WILD') {
+        expect(card.colors.some((c) => c === 'airport' || c === 'metro')).toBe(false);
+      }
+      if (card.kind === 'RENT' && !card.universal) {
+        expect(card.colors.some((c) => c === 'airport' || c === 'metro')).toBe(false);
+      }
+    }
   });
 
   it('respecte les grilles de loyer de la spec', () => {

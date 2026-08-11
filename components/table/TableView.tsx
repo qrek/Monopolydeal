@@ -287,6 +287,7 @@ export function TableView({ view }: { view: GameView }) {
             <RulesButton
               className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
               label="Règles"
+              mode={view.game.mode}
             />
             <button
               onClick={() => setLogOpen((v) => !v)}

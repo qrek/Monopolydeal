@@ -17,6 +17,7 @@ import {
   saveName,
 } from '@/lib/client/identity';
 import { useUserId } from '@/lib/client/useUserId';
+import { RULES, type GameMode } from '@/lib/engine';
 import { ensureSession, isSupabaseConfigured } from '@/lib/supabase/client';
 
 export function HomeScreen() {
@@ -24,6 +25,7 @@ export function HomeScreen() {
   const userId = useUserId();
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
+  const [mode, setMode] = useState<GameMode>('CLASSIC');
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export function HomeScreen() {
     try {
       saveName(trimmed);
       await ensureSession();
-      const { code: created } = await api.createGame(trimmed);
+      const { code: created } = await api.createGame(trimmed, mode);
       router.push(`/g/${created}`);
     } catch (e) {
       setError(e instanceof RequestError ? e.message : 'Création impossible');
@@ -79,6 +81,37 @@ export function HomeScreen() {
           seed={userId ?? trimmed}
           autoFocus
         />
+
+        {/* Le mode se choisit ici et nulle part ailleurs : il est figé à la
+            création, et c'est le serveur qui en répond. */}
+        <fieldset>
+          <legend className="mb-2 block text-xs font-bold uppercase tracking-widest text-ink-soft">
+            Mode de jeu
+          </legend>
+          <div className="grid gap-2">
+            {(Object.keys(RULES) as GameMode[]).map((m) => {
+              const on = m === mode;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  aria-pressed={on}
+                  className={`rounded-card border-2 px-3 py-2 text-left transition-colors ${
+                    on
+                      ? 'border-ink bg-cream shadow-card'
+                      : 'border-ink/20 bg-transparent hover:border-ink/40'
+                  }`}
+                >
+                  <span className="block text-sm font-extrabold text-ink">
+                    {RULES[m].label}
+                  </span>
+                  <span className="block text-xs text-ink-soft">{RULES[m].tagline}</span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
         <Button onClick={() => void create()} disabled={!ready} loading={busy === 'create'}>
           Créer une partie
@@ -135,6 +168,7 @@ export function HomeScreen() {
       <RulesButton
         className="mx-auto text-sm font-extrabold uppercase tracking-widest text-ink-soft underline decoration-ink/30 underline-offset-4 transition-colors hover:text-ink"
         label="Règles du jeu"
+        mode={mode}
       />
     </main>
   );

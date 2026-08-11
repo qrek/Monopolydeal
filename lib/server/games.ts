@@ -17,14 +17,15 @@ import { after } from 'next/server';
 import {
   JUST_SAY_NO_WINDOW_MS,
   MAX_ACTIONS_PER_TURN,
-  MAX_PLAYERS,
   RuleError,
   createGame,
   getAutoActions,
   redactFor,
   reduce,
   roomCodeFromSeed,
+  rulesFor,
   type GameAction,
+  type GameMode,
   type GameState,
   type RedactedState,
 } from '@/lib/engine';
@@ -38,6 +39,7 @@ import { adminClient } from '@/lib/supabase/admin';
 export interface GameRow {
   id: string;
   code: string;
+  mode: GameMode;
   status: 'lobby' | 'active' | 'finished';
   phase: string;
   host_id: string;
@@ -183,12 +185,19 @@ function notify(gameId: string, version: number): void {
 // Création & lobby
 // ---------------------------------------------------------------------------
 
+/** Le mode est choisi à la création, et nulle part ailleurs. */
+function sanitizeMode(raw: unknown): GameMode {
+  return raw === 'DUEL' ? 'DUEL' : 'CLASSIC';
+}
+
 export async function createRoom(
   userId: string,
   rawName: unknown,
+  rawMode?: unknown,
 ): Promise<{ code: string; gameId: string }> {
   const db = adminClient();
   const name = sanitizeName(rawName);
+  const mode = sanitizeMode(rawMode);
 
   // Le code est dérivé du seed ; en cas de collision (unique sur code), on
   // retire un seed. 24^4 ≈ 331k codes, la boucle aboutit vite.
@@ -197,7 +206,7 @@ export async function createRoom(
     const code = roomCodeFromSeed(seed);
     const { data: game, error } = await db
       .from('games')
-      .insert({ code, host_id: userId })
+      .insert({ code, host_id: userId, mode })
       .select('*')
       .single();
     if (error) {
@@ -249,8 +258,14 @@ export async function joinRoom(
   if (game.status !== 'lobby') {
     throw new ApiError(409, 'GAME_STARTED', 'La partie a déjà commencé');
   }
-  if (players.length >= MAX_PLAYERS) {
-    throw new ApiError(409, 'GAME_FULL', 'La partie est complète (5 joueurs)');
+  // Le mode fixe le nombre de sièges : un duel n'en a que deux.
+  const { maxPlayers } = rulesFor(game.mode);
+  if (players.length >= maxPlayers) {
+    throw new ApiError(
+      409,
+      'GAME_FULL',
+      `La partie est complète (${maxPlayers} joueurs)`,
+    );
   }
   const seat = Math.max(-1, ...players.map((p) => p.seat)) + 1;
   const { error } = await db.from('game_players').insert({
@@ -465,6 +480,7 @@ export async function startGame(code: string, userId: string): Promise<void> {
   const initial = createGame({
     id: game.id,
     seed: priv.seed,
+    mode: game.mode,
     players: players.map((p) => ({ id: p.user_id, name: p.name })),
   });
   try {
