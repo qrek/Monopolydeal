@@ -38,9 +38,17 @@ export interface RuleProfile {
   minPlayers: number;
   maxPlayers: number;
   /**
-   * Cartes supplémentaires données au second joueur. À deux, l'ordre du tour
-   * vaut environ quatre points de victoire ; deux cartes le compensent.
-   * Mesuré sur 1 500 parties simulées, pas estimé.
+   * Cartes supplémentaires données au second joueur.
+   *
+   * À deux, l'ordre du tour vaut environ quatre points de victoire, et c'est
+   * un défaut purement positionnel : le deck élargi du duel donne exactement
+   * le même écart que le deck classique. Deux cartes le referment.
+   *
+   * Mesuré sur 6 000 parties simulées par valeur (banc `sim/`), avec le vrai
+   * deck du mode : +1 laisse 52,5 % au premier joueur, +2 donne 49,5 % et +3
+   * 49,4 %, à ±1,3 point près. Deux et trois sont indiscernables ; on prend
+   * la plus sobre. Attention au piège : à 1 500 parties, la même mesure
+   * donnait 46,7 % et laissait croire à une sur-correction.
    */
   secondPlayerBonus: number;
   label: string;
