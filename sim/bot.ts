@@ -80,6 +80,12 @@ export const ONLY_HANDICAP: Rules = { ...BASE, firstTurnHandicap: true };
 /** Le mode DUEL tel qu'il est réellement implémenté dans le moteur. */
 export const DUEL_MOTEUR: Rules = { ...BASE, mode: 'DUEL' };
 
+/** Balayage de la compensation sur le deck élargi. */
+export const DUEL_B0: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 0 };
+export const DUEL_B1: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 1 };
+export const DUEL_B2: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 2 };
+export const DUEL_B3: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 3 };
+
 /** Le duel corrigé : on garde ce qui marche, on jette ce qui nuit. */
 export const DUEL_V2: Rules = {
   ...BASE,

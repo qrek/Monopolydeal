@@ -7,6 +7,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BASE,
+  DUEL_B0,
+  DUEL_B1,
+  DUEL_B2,
+  DUEL_B3,
   DUEL,
   DUEL_MOTEUR,
   DUEL_V2,
@@ -57,6 +61,10 @@ describe('Banc duel', () => {
   it(`mesure ${N} parties par variante`, () => {
     console.log(`\n${N} parties par variante, mêmes graines pour toutes.\n`);
     const r = [
+      bench('duel +0', DUEL_B0),
+      bench('duel +1', DUEL_B1),
+      bench('duel +2', DUEL_B2),
+      bench('duel +3', DUEL_B3),
       bench('base', BASE),
       bench('+étal', ONLY_MARKET),
       bench('+filet doux', ONLY_SOFT_DB),
