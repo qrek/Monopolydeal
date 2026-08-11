@@ -112,6 +112,7 @@ function Plate({
   detail,
   children,
   tight = false,
+  framed = false,
 }: {
   background: string;
   color?: string;
@@ -120,13 +121,22 @@ function Plate({
   children?: React.ReactNode;
   /** Plaque basse, pour les cartes qui ont besoin de place dessous. */
   tight?: boolean;
+  /**
+   * Plaque encadrée : un rectangle de couleur posé DANS la carte, avec du
+   * crème tout autour, plutôt qu'un bandeau à fond perdu. C'est ce que fait
+   * un vrai titre de propriété — le nom de rue est imprimé sur une vignette,
+   * pas sur le bord du carton.
+   */
+  framed?: boolean;
 }) {
   const showValue = value !== undefined && value > 0 && detail !== 'minimal';
   return (
     <div
-      className={`relative -mx-[0.42em] -mt-[0.42em] flex shrink-0 flex-col items-center justify-center gap-[0.12em] rounded-t-[0.28em] border-b-2 border-ink px-[0.45em] text-center ${
-        tight ? 'py-[0.35em]' : 'py-[0.45em]'
-      } ${showValue ? 'pl-[2.3em]' : ''}`}
+      className={`relative flex shrink-0 flex-col items-center justify-center gap-[0.12em] px-[0.45em] text-center ${
+        framed
+          ? 'rounded-[0.2em] border-2 border-ink'
+          : '-mx-[0.42em] -mt-[0.42em] rounded-t-[0.28em] border-b-2 border-ink'
+      } ${tight ? 'py-[0.35em]' : 'py-[0.45em]'} ${showValue ? 'pl-[2.3em]' : ''}`}
       style={{ background, color, minHeight: tight ? undefined : '3.1em' }}
     >
       {showValue && <Value value={value} detail={detail} />}
@@ -135,11 +145,24 @@ function Plate({
   );
 }
 
-/** Nom porté par la plaque. Il rétrécit avec sa longueur plutôt que de déborder. */
+/**
+ * Nom porté par la plaque. Il rétrécit avec sa longueur plutôt que de déborder.
+ *
+ * Les paliers sont calés sur la plaque ENCADRÉE, qui est la plus étroite des
+ * deux : sa marge crème et son filet lui coûtent une dizaine de pixels de
+ * chaque côté, assez pour que « Montparnasse » se coupe en plein mot.
+ */
 function PlateName({ text, detail }: { text: string; detail: Detail }) {
   if (detail === 'minimal') return null;
-  const scale =
-    text.length > 26 ? 0.5 : text.length > 18 ? 0.58 : text.length > 11 ? 0.64 : 0.7;
+  // Deux contraintes, dont on garde la plus sévère. La longueur totale dit
+  // combien de lignes il faudra ; le mot le plus long dit ce qui, lui, ne peut
+  // pas être coupé — « Montparnasse » tient sur une ligne ou se casse en deux,
+  // il n'y a pas d'entre-deux.
+  const total =
+    text.length > 26 ? 0.46 : text.length > 18 ? 0.54 : text.length > 11 ? 0.6 : 0.68;
+  const longest = Math.max(...text.split(/[\s—–-]+/).map((w) => w.length));
+  const word = longest > 11 ? 0.5 : longest > 9 ? 0.56 : longest > 7 ? 0.62 : 0.68;
+  const scale = Math.min(total, word);
   return (
     <span
       className="min-w-0 font-extrabold uppercase leading-[1.05] tracking-tight [hyphens:auto] [overflow-wrap:anywhere]"
@@ -212,6 +235,19 @@ function Watermark() {
       Monopoly
     </p>
   );
+}
+
+/**
+ * Comment se nomme le lot, au pied de la carte.
+ *
+ * « Lot rouge » se dit ; « lot gares » ne se dit pas. La distinction suit
+ * exactement celle des constructions : les huit familles qui portent un nom de
+ * couleur prennent l'article, les quatre familles de transports et de services
+ * se nomment déjà toutes seules.
+ */
+function setLabel(color: Color): string {
+  const cfg = COLORS[color];
+  return cfg.buildable ? `Lot ${cfg.label.toLowerCase()}` : cfg.label;
 }
 
 function Foot({ left, right }: { left: string; right?: string }) {
@@ -294,14 +330,20 @@ function PropertyFace({ card, width }: { card: Card & { kind: 'PROPERTY' }; widt
 
   return (
     <Frame width={width}>
-      <Plate background={cfg.hex} color={readableInk(cfg.hex)} value={card.value} detail={detail}>
+      <Plate
+        framed
+        background={cfg.hex}
+        color={readableInk(cfg.hex)}
+        value={card.value}
+        detail={detail}
+      >
         <PlateName text={card.label} detail={detail} />
       </Plate>
       {detail !== 'minimal' && <Ladder rows={rows} dense={detail !== 'full'} />}
       {detail === 'full' && (
         <>
           <Watermark />
-          <Foot left={cfg.label} right={`${cfg.size} ${unitOf(card.color).many}`} />
+          <Foot left={setLabel(card.color)} right={`${cfg.size} ${unitOf(card.color).many}`} />
         </>
       )}
     </Frame>
