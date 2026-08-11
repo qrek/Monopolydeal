@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
+import { ActionSummary } from '@/components/play/ActionSummary';
 import type { PlayController } from '@/components/play/usePlayController';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -21,6 +22,7 @@ import {
   type CardId,
   type PendingTarget,
   type RedactedPlayer,
+  type RedactedState,
 } from '@/lib/engine';
 
 function total(ids: CardId[]): number {
@@ -30,11 +32,13 @@ function total(ids: CardId[]): number {
 export function PaymentModal({
   target,
   me,
+  state,
   creditorName,
   ctl,
 }: {
   target: PendingTarget | undefined;
   me: RedactedPlayer;
+  state: RedactedState;
   creditorName: string;
   ctl: PlayController;
 }) {
@@ -101,6 +105,13 @@ export function PaymentModal({
         </p>
       ) : (
         <>
+          {/* D'où vient la dette, en cartes : sans ça, on paie sans savoir
+              ce qu'on vient de subir. */}
+          {state.pending && (
+            <div className="mb-3">
+              <ActionSummary pending={state.pending} state={state} viewerId={me.id} width={48} />
+            </div>
+          )}
           <p className="mb-3 text-sm text-ink-soft">
             Choisis dans ta banque et tes propriétés. Ta main est intouchable.
           </p>

@@ -459,6 +459,7 @@ export function TableView({ view }: { view: GameView }) {
       {debt && (
         <PaymentModal
           target={debt}
+          state={state}
           me={me}
           creditorName={nameOf(state.pending?.sourcePlayerId ?? '')}
           ctl={ctl}
@@ -470,6 +471,7 @@ export function TableView({ view }: { view: GameView }) {
           pending={state.pending}
           target={response}
           me={me}
+          state={state}
           sourceName={nameOf(state.pending.sourcePlayerId)}
           updatedAt={view.game.updated_at}
           ctl={ctl}
