@@ -50,7 +50,13 @@ import {
   type RedactedPlayer,
 } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
-import { fitBank, fitGroups, handSink, useTable } from '@/lib/ui/layout';
+import {
+  fitBank,
+  fitGroups,
+  handSink,
+  useMeasuredWidth,
+  useTable,
+} from '@/lib/ui/layout';
 import { myPendingTarget, myResponse } from '@/lib/ui/legal';
 
 const PHASE_LABEL: Record<Phase, string> = {
@@ -110,6 +116,9 @@ export function TableView({ view }: { view: GameView }) {
 
   const state = view.state;
   const ctl = usePlayController(view.game.code, view.viewerId, applyView);
+  // La rangée de mon plateau se mesure elle-même : c'est elle qui connaît la
+  // place restante une fois l'encoche déduite.
+  const [boardRef, boardWidth] = useMeasuredWidth(viewport.width - 16);
 
   const me = state?.players.find((p) => p.id === view.viewerId);
   const shaken = useLossPulse(state?.events ?? [], view.viewerId);
@@ -177,7 +186,7 @@ export function TableView({ view }: { view: GameView }) {
   // mais jamais plus de sa part ; mes lots héritent du reste et rétrécissent
   // pour tenir. Sans cela, huit billets poussaient mes propriétés dans un
   // défilement horizontal invisible.
-  const rowWidth = Math.max(240, viewport.width - 16);
+  const rowWidth = Math.max(240, boardWidth);
   const actionWidth = Math.round(scale.mine * 1.9);
   const bankShare = Math.round((rowWidth - actionWidth) * 0.42);
   const bankWidth = fitBank(bankShare, me.bank.length, scale.mine);
@@ -313,6 +322,7 @@ export function TableView({ view }: { view: GameView }) {
               — qui n'a pas de contenu — tombait à zéro pixel. Il était donc
               invisible ET intouchable, au glisser comme à la tape. */}
           <section
+            ref={boardRef}
             aria-label="Mon plateau"
             className={`flex min-h-0 flex-1 items-stretch gap-2 ${shaken ? 'animate-shake' : ''}`}
           >

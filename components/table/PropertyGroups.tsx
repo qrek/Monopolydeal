@@ -184,10 +184,16 @@ function useHiddenCount(): [
     [read],
   );
 
+  // Après CHAQUE rendu, et pas seulement au redimensionnement : un lot qui
+  // s'ajoute ne change pas la taille du conteneur, donc l'observateur ne se
+  // déclenchait pas et le compteur restait à zéro toute la partie — c'est-à-dire
+  // exactement dans le cas qu'il est censé signaler. `setHidden` avec la même
+  // valeur ne provoque pas de nouveau rendu : la boucle se referme d'elle-même.
+  useEffect(read);
+
   useEffect(() => {
     const node = el.current;
     if (!node) return;
-    read();
     const ro = new ResizeObserver(read);
     ro.observe(node);
     node.addEventListener('scroll', read, { passive: true });
