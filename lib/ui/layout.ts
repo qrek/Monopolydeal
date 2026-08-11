@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /** Ratio hauteur/largeur d'une carte, partagé avec les faces. */
 const CARD_RATIO = 1.4;
@@ -210,6 +210,49 @@ export function fitBank(available: number, count: number, max: number): number {
   if (count <= 1) return max;
   const span = 1 + BANK_REVEAL * (count - 1);
   return Math.max(MIN_CARD, Math.min(max, Math.floor(available / span)));
+}
+
+/**
+ * Largeur réellement offerte par un élément.
+ *
+ * Déduire la place disponible de `window.innerWidth` moins une marge supposée
+ * ne marche que sur un écran rectangulaire. Sur un téléphone à encoche tenu en
+ * paysage, `env(safe-area-inset-left/right)` réserve une cinquantaine de
+ * pixels de chaque côté au lieu des huit attendus : la centaine de pixels
+ * manquante retombait entièrement sur mes propriétés, qui débordaient d'un lot
+ * entier sans que rien ne le montre. On mesure donc, au lieu de deviner.
+ */
+export function useMeasuredWidth(
+  fallback: number,
+): [(el: HTMLElement | null) => void, number] {
+  const [width, setWidth] = useState(0);
+  const node = useRef<HTMLElement | null>(null);
+
+  const read = useCallback(() => {
+    const el = node.current;
+    if (el) setWidth(el.clientWidth);
+  }, []);
+
+  const ref = useCallback(
+    (el: HTMLElement | null) => {
+      node.current = el;
+      read();
+    },
+    [read],
+  );
+
+  useEffect(() => {
+    const el = node.current;
+    if (!el) return;
+    read();
+    const ro = new ResizeObserver(read);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [read]);
+
+  // Avant la première mesure — le rendu serveur, puis la première frame — on
+  // se rabat sur l'estimation, qui n'est fausse que sur les écrans à encoche.
+  return [ref, width > 0 ? width : fallback];
 }
 
 export interface Viewport {
