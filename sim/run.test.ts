@@ -61,21 +61,26 @@ describe('Banc duel', () => {
   it(`mesure ${N} parties par variante`, () => {
     console.log(`\n${N} parties par variante, mêmes graines pour toutes.\n`);
     const r = [
-      bench('duel +0', DUEL_B0),
-      bench('duel +1', DUEL_B1),
-      bench('duel +2', DUEL_B2),
-      bench('duel +3', DUEL_B3),
+      // Le classique à deux, référence de tout le reste.
       bench('base', BASE),
+      // Les règles envisagées, isolées : laquelle fait quoi.
       bench('+étal', ONLY_MARKET),
       bench('+filet doux', ONLY_SOFT_DB),
       bench('+loyer ×2', ONLY_RENT),
       bench('+1 refus/tour', ONLY_JSN),
-      bench('DUEL', DUEL),
+      bench('DUEL (4 règles)', DUEL),
+      // Les compensations du second joueur, sur le deck classique.
       bench('+2e joueur +1', ONLY_BONUS1),
       bench('+2e joueur +2', ONLY_BONUS2),
       bench('+1er tour -1', ONLY_HANDICAP),
       bench('DUEL v2', DUEL_V2),
+      // Le mode réellement implémenté, et le balayage de sa compensation
+      // sur SON deck — la calibrer sur le deck classique donnait faux.
       bench('MOTEUR duel', DUEL_MOTEUR),
+      bench('duel +0', DUEL_B0),
+      bench('duel +1', DUEL_B1),
+      bench('duel +2', DUEL_B2),
+      bench('duel +3', DUEL_B3),
     ];
     expect(r.every((x) => x.n > 0)).toBe(true);
   }, 900_000);
