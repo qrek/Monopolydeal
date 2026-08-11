@@ -13,6 +13,7 @@ import {
 import type {
   CardId,
   Color,
+  GameMode,
   GameState,
   PlayerState,
   PropertyGroup,
@@ -27,6 +28,45 @@ export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 5;
 /** Nombre de lots complets de couleurs distinctes requis pour gagner. */
 export const SETS_TO_WIN = 3;
+
+/**
+ * Ce qui change d'un mode à l'autre. Tout le reste — trois cartes par tour,
+ * sept en main, trois lots pour gagner — est commun, et c'est voulu : un mode
+ * qui change tout n'est plus le même jeu.
+ */
+export interface RuleProfile {
+  minPlayers: number;
+  maxPlayers: number;
+  /**
+   * Cartes supplémentaires données au second joueur. À deux, l'ordre du tour
+   * vaut environ quatre points de victoire ; deux cartes le compensent.
+   * Mesuré sur 1 500 parties simulées, pas estimé.
+   */
+  secondPlayerBonus: number;
+  label: string;
+  tagline: string;
+}
+
+export const RULES: Record<GameMode, RuleProfile> = {
+  CLASSIC: {
+    minPlayers: MIN_PLAYERS,
+    maxPlayers: MAX_PLAYERS,
+    secondPlayerBonus: 0,
+    label: 'Partie classique',
+    tagline: '2 à 5 joueurs · les dix familles du plateau',
+  },
+  DUEL: {
+    minPlayers: 2,
+    maxPlayers: 2,
+    secondPlayerBonus: 2,
+    label: 'Tête-à-tête',
+    tagline: '2 joueurs · métro et aéroports · second joueur compensé',
+  },
+};
+
+export function rulesFor(mode: GameMode): RuleProfile {
+  return RULES[mode];
+}
 
 export function getPlayer(state: GameState, playerId: string): PlayerState {
   const p = state.players.find((x) => x.id === playerId);

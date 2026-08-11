@@ -20,7 +20,18 @@ export type Color =
   | 'green' // Vert
   | 'darkblue' // Bleu nuit
   | 'black' // Noir — transports
-  | 'turquoise'; // Turquoise — services
+  | 'turquoise' // Turquoise — services
+  // Deux familles réservées aux modes qui les incluent : elles existent dans
+  // le catalogue, mais un deck classique n'en distribue aucune carte.
+  | 'airport' // Ardoise — aéroports
+  | 'metro'; // Violet — métro
+
+/**
+ * Le mode fixe la composition du deck et le profil de règles. Il est choisi à
+ * la création de la partie et vit dans l'état serveur : un réglage client
+ * laisserait deux joueurs jouer à des règles différentes.
+ */
+export type GameMode = 'CLASSIC' | 'DUEL';
 
 export type CardId = string;
 
@@ -181,6 +192,8 @@ export interface PendingAction {
 
 export interface GameState {
   id: string;
+  /** Règles et composition du deck. Figé à la création. */
+  mode: GameMode;
   phase: Phase;
   players: PlayerState[];
   /** Index dans `players` du joueur dont c'est le tour. */

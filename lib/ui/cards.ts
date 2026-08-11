@@ -72,6 +72,8 @@ export const ACTION_EFFECTS: Record<ActionKind, ActionEffect> = {
 export function unitOf(color: Color): { one: string; many: string } {
   if (color === 'black') return { one: 'gare', many: 'gares' };
   if (color === 'turquoise') return { one: 'compagnie', many: 'compagnies' };
+  if (color === 'airport') return { one: 'aéroport', many: 'aéroports' };
+  if (color === 'metro') return { one: 'ligne', many: 'lignes' };
   return { one: 'carte', many: 'cartes' };
 }
 

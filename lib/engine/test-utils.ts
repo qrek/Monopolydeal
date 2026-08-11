@@ -10,6 +10,7 @@ import type {
   ActionKind,
   CardId,
   Color,
+  GameMode,
   GameState,
   PlayerState,
   PropertyGroup,
@@ -31,10 +32,11 @@ export const rentAny = (i = 0): CardId => `rent-universal-${i}`;
 
 // --- construction d'états ---------------------------------------------------
 
-export function newLobby(playerCount = 2): GameState {
+export function newLobby(playerCount = 2, mode: GameMode = 'CLASSIC'): GameState {
   return createGame({
     id: 'game-test',
     seed: SEED,
+    mode,
     players: Array.from({ length: playerCount }, (_, i) => ({
       id: `p${i + 1}`,
       name: `Joueur ${i + 1}`,
@@ -43,10 +45,10 @@ export function newLobby(playerCount = 2): GameState {
 }
 
 /** Table déjà lancée : phase PLAY, joueur 1 actif, mains et pioche vides. */
-export function newTable(playerCount = 2): GameState {
-  const s = newLobby(playerCount);
+export function newTable(playerCount = 2, mode: GameMode = 'CLASSIC'): GameState {
+  const s = newLobby(playerCount, mode);
   s.phase = 'PLAY';
-  s.deck = freshDeckIds();
+  s.deck = freshDeckIds(mode);
   s.actionsPlayed = 0;
   return s;
 }

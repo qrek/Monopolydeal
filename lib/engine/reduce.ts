@@ -22,20 +22,20 @@ import {
   EMPTY_HAND_DRAW,
   HAND_LIMIT,
   MAX_ACTIONS_PER_TURN,
-  MAX_PLAYERS,
-  MIN_PLAYERS,
   STARTING_HAND,
   TURN_DRAW,
   bestRentForColor,
   findWinner,
   groupHasRoom,
   payableCards,
+  rulesFor,
 } from './selectors.ts';
 import type {
   ActionKind,
   CardId,
   Color,
   GameAction,
+  GameMode,
   GameEvent,
   GameState,
   PendingAction,
@@ -53,11 +53,14 @@ export interface CreateGameOptions {
   id: string;
   seed: string;
   players: Array<{ id: string; name: string }>;
+  /** Défaut : la partie classique, celle d'avant les modes. */
+  mode?: GameMode;
 }
 
 export function createGame(opts: CreateGameOptions): GameState {
   return {
     id: opts.id,
+    mode: opts.mode ?? 'CLASSIC',
     phase: 'LOBBY',
     players: opts.players.map((p) => ({
       id: p.id,
@@ -476,10 +479,16 @@ function finishResponse(d: GameState, t: PendingTarget): void {
 
 function handleStartGame(d: GameState): void {
   requirePhase(d, 'LOBBY');
-  if (d.players.length < MIN_PLAYERS || d.players.length > MAX_PLAYERS) {
-    throw new RuleError('BAD_PLAYER_COUNT', 'Il faut 2 à 5 joueurs');
+  const rules = rulesFor(d.mode);
+  if (d.players.length < rules.minPlayers || d.players.length > rules.maxPlayers) {
+    throw new RuleError(
+      'BAD_PLAYER_COUNT',
+      rules.minPlayers === rules.maxPlayers
+        ? `Ce mode se joue à ${rules.minPlayers} joueurs`
+        : `Il faut ${rules.minPlayers} à ${rules.maxPlayers} joueurs`,
+    );
   }
-  d.deck = shuffle(freshDeckIds(), d.seed, 0);
+  d.deck = shuffle(freshDeckIds(d.mode), d.seed, 0);
   emit(d, {
     t: 'GAME_STARTED',
     seed: d.seed,
@@ -489,6 +498,16 @@ function handleStartGame(d: GameState): void {
     for (const p of d.players) {
       const card = d.deck.shift();
       if (card !== undefined) p.hand.push(card);
+    }
+  }
+  // Compensation du second joueur : celui qui ne commence pas entre en jeu
+  // avec un peu plus en main. Sans cela, à deux, la place décide de la partie
+  // presque aussi souvent que le jeu.
+  const second = d.players[1];
+  if (second) {
+    for (let i = 0; i < rules.secondPlayerBonus; i++) {
+      const card = d.deck.shift();
+      if (card !== undefined) second.hand.push(card);
     }
   }
   d.turnIndex = 0;

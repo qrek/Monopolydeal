@@ -2,7 +2,7 @@
 
 'use client';
 
-import type { GameAction } from '@/lib/engine';
+import type { GameAction, GameMode } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
 
 export class RequestError extends Error {
@@ -36,10 +36,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  createGame: (name: string) =>
+  createGame: (name: string, mode: GameMode = 'CLASSIC') =>
     call<{ code: string; gameId: string }>('/api/games', {
       method: 'POST',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, mode }),
     }),
 
   joinGame: (code: string, name: string) =>

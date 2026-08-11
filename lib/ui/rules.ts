@@ -9,8 +9,8 @@
 
 import {
   ACTIONS,
-  ALL_COLORS,
   COLORS,
+  colorsFor,
   EMPTY_HAND_DRAW,
   HAND_LIMIT,
   MAX_ACTIONS_PER_TURN,
@@ -20,8 +20,10 @@ import {
   SETS_TO_WIN,
   STARTING_HAND,
   TURN_DRAW,
+  rulesFor,
   type ActionKind,
   type Color,
+  type GameMode,
 } from '@/lib/engine';
 
 import { ACTION_RULES, unitOf } from './cards';
@@ -51,14 +53,21 @@ export interface RentRow {
   buildable: boolean;
 }
 
-export const RENT_TABLE: RentRow[] = ALL_COLORS.map((color) => ({
-  color,
-  label: COLORS[color].label,
-  size: COLORS[color].size,
-  rents: [...COLORS[color].rents],
-  value: COLORS[color].value,
-  buildable: COLORS[color].buildable,
-}));
+/**
+ * Le barème ne montre que les familles réellement distribuées : lister le
+ * métro dans une partie classique, c'est promettre des cartes qui n'existent
+ * pas dans ce deck.
+ */
+export function rentTable(mode: GameMode): RentRow[] {
+  return colorsFor(mode).map((color) => ({
+    color,
+    label: COLORS[color].label,
+    size: COLORS[color].size,
+    rents: [...COLORS[color].rents],
+    value: COLORS[color].value,
+    buildable: COLORS[color].buildable,
+  }));
+}
 
 export interface ActionRow {
   kind: ActionKind;
@@ -78,10 +87,13 @@ export const ACTION_TABLE: ActionRow[] = (
   rule: ACTION_RULES[kind],
 }));
 
-/** Le plus gros lot du jeu, cité tel quel dans le chapitre des loyers. */
-const BIGGEST = RENT_TABLE.reduce((a, b) => (b.size > a.size ? b : a));
-
-export const CHAPTERS: RuleChapter[] = [
+export function chaptersFor(mode: GameMode): RuleChapter[] {
+  const table = rentTable(mode);
+  /** Le plus gros lot du mode : c'est lui qui sert d'exemple. */
+  const BIGGEST = table.reduce((a, b) => (b.size > a.size ? b : a));
+  const RENT_TABLE = table;
+  const profil = rulesFor(mode);
+  return [
   {
     id: 'but',
     title: 'Le but',
@@ -251,7 +263,14 @@ export const CHAPTERS: RuleChapter[] = [
     entries: [
       {
         term: 'Joueurs',
-        detail: `De ${MIN_PLAYERS} à ${MAX_PLAYERS}. Chacun commence avec ${STARTING_HAND} cartes.`,
+        detail:
+          profil.minPlayers === profil.maxPlayers
+            ? `Exactement ${profil.minPlayers}. Chacun commence avec ${STARTING_HAND} cartes${
+                profil.secondPlayerBonus > 0
+                  ? `, et le second en reçoit ${profil.secondPlayerBonus} de plus`
+                  : ''
+              }.`
+            : `De ${profil.minPlayers} à ${profil.maxPlayers}. Chacun commence avec ${STARTING_HAND} cartes.`,
       },
       {
         term: 'Pioche vide',
@@ -265,7 +284,8 @@ export const CHAPTERS: RuleChapter[] = [
       },
     ],
   },
-];
+  ];
+}
 
 /** Comment se compte un lot, pour l'en-tête du tableau des loyers. */
 export function sizeLabel(row: RentRow): string {

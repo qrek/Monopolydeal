@@ -231,7 +231,9 @@ function Foot({ left, right }: { left: string; right?: string }) {
 function Swatches() {
   const colors = Object.keys(COLORS) as Color[];
   return (
-    <div className="grid shrink-0 grid-cols-5 gap-[0.16em]">
+    // Quatre colonnes : douze couleurs y font trois rangées pleines, là où
+    // cinq laissaient une rangée bancale.
+    <div className="grid shrink-0 grid-cols-4 gap-[0.16em]">
       {colors.map((c) => (
         <span
           key={c}
