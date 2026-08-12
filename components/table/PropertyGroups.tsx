@@ -16,6 +16,7 @@ import {
   groupRent,
   isGroupComplete,
   type CardId,
+  type Color,
   type PropertyGroup,
 } from '@/lib/engine';
 import { readableInk } from '@/lib/ui/color';
@@ -43,12 +44,15 @@ function StackedCard({
   width,
   top,
   depth,
+  color,
   onMoveWild,
 }: {
   cardId: CardId;
   width: number;
   top: number;
   depth: number;
+  /** Couleur du lot : c'est elle qui met le joker bicolore à l'endroit. */
+  color: Color;
   onMoveWild?: (cardId: CardId) => void;
 }) {
   const press = useLongPress(cardId);
@@ -66,7 +70,7 @@ function StackedCard({
       }}
       title={onMoveWild ? 'Déplacer ce joker (gratuit)' : 'Appui long pour agrandir'}
     >
-      <CardFace cardId={cardId} width={width} />
+      <CardFace cardId={cardId} width={width} orient={color} />
     </div>
   );
 }
@@ -104,6 +108,7 @@ export const GroupStack = memo(function GroupStack({
             width={cardWidth}
             top={i * step}
             depth={i}
+            color={group.color}
             onMoveWild={onMoveWild && isWild(id) ? onMoveWild : undefined}
           />
         ))}

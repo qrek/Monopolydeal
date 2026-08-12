@@ -10,10 +10,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 import { CardFace } from '@/components/cards/CardFace';
 import type { PlayController } from '@/components/play/usePlayController';
+import { COUCHE } from '@/lib/ui/couches';
 
 export function FlightLayer({ ctl, width }: { ctl: PlayController; width: number }) {
   return (
-    <div className="pointer-events-none fixed inset-0 z-[65]">
+    <div className="pointer-events-none fixed inset-0" style={{ zIndex: COUCHE.narration }}>
       <AnimatePresence>
         {ctl.flights.map((f) => (
           <motion.div

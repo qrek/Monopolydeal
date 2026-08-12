@@ -10,11 +10,15 @@ import { useState } from 'react';
 
 import { Wordmark } from '@/components/brand/Wordmark';
 import { Button } from '@/components/ui/Button';
+import { COUCHE } from '@/lib/ui/couches';
 
 export function RotateHint({ onDismiss }: { onDismiss: () => void }) {
   const [leaving, setLeaving] = useState(false);
   return (
-    <div className="fixed inset-0 z-[60] grid place-items-center bg-board px-6 text-center">
+    <div
+      className="fixed inset-0 grid place-items-center bg-board px-6 text-center"
+      style={{ zIndex: COUCHE.rotation }}
+    >
       <div className="flex max-w-xs flex-col items-center gap-5">
         <Wordmark size={30} />
         <span

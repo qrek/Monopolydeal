@@ -55,6 +55,11 @@ function detailFor(width: number): Detail {
 interface CardFaceProps {
   cardId: CardId;
   width?: number;
+  /**
+   * Couleur sous laquelle la carte est posée. N'intéresse que le joker
+   * bicolore : c'est elle qui décide de quel côté il se lit.
+   */
+  orient?: Color;
 }
 
 // ---------------------------------------------------------------------------
@@ -357,14 +362,28 @@ function PropertyFace({ card, width }: { card: Card & { kind: 'PROPERTY' }; widt
  * Joker bicolore, imprimé tête-bêche — exactement comme la carte d'origine.
  * La couleur qu'on lit à l'endroit est celle qu'on joue : le geste est écrit
  * dans l'objet, il n'y a aucune convention à expliquer.
+ *
+ * Encore faut-il que la carte tourne. Posée dans un lot, elle gardait sa
+ * moitié imprimée en premier vers le haut, quelle que soit la couleur choisie —
+ * un joker bleu/vert rangé chez les verts s'annonçait donc « bleu ». On la
+ * retourne : le côté en jeu est toujours celui qui se lit à l'endroit.
  */
-function WildFace({ card, width }: { card: Card & { kind: 'WILD' }; width: number }) {
+function WildFace({
+  card,
+  width,
+  orient,
+}: {
+  card: Card & { kind: 'WILD' };
+  width: number;
+  orient?: Color;
+}) {
   const detail = detailFor(width);
   const [a, b] = card.colors;
+  const faces = orient === b ? [b, a] : [a, b];
 
   return (
     <Frame width={width} flush>
-      {[a, b].map((color, i) => {
+      {faces.map((color, i) => {
         const cfg = COLORS[color];
         return (
           <div
@@ -602,14 +621,18 @@ function RentFace({ card, width }: { card: Card & { kind: 'RENT' }; width: numbe
   );
 }
 
-export const CardFace = memo(function CardFace({ cardId, width = 96 }: CardFaceProps) {
+export const CardFace = memo(function CardFace({
+  cardId,
+  width = 96,
+  orient,
+}: CardFaceProps) {
   const card = getCard(cardId);
 
   switch (card.kind) {
     case 'PROPERTY':
       return <PropertyFace card={card} width={width} />;
     case 'WILD':
-      return <WildFace card={card} width={width} />;
+      return <WildFace card={card} width={width} orient={orient} />;
     case 'WILD_ANY':
       return <WildAnyFace card={card} width={width} />;
     case 'MONEY':

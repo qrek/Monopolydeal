@@ -42,6 +42,35 @@ describe('Mise en place', () => {
     expect(a.players[0]?.hand).not.toEqual(c.players[0]?.hand);
   });
 
+  it('tire au sort le joueur qui commence', () => {
+    // Le seed décide, donc le tirage est rejouable ; mais il ne doit pas
+    // toujours désigner l'hôte, sinon créer la partie serait un avantage.
+    const seeds = Array.from({ length: 40 }, (_, i) => `depart-${i}`);
+    const ouvreurs = new Set(
+      seeds.map((seed) => {
+        const s = reduce({ ...newLobby(3), seed }, { type: 'START_GAME' });
+        return s.turnIndex;
+      }),
+    );
+    expect(ouvreurs.size).toBeGreaterThan(1);
+
+    // Rejouable : même seed, même joueur.
+    const a = reduce({ ...newLobby(3), seed: 'depart-7' }, { type: 'START_GAME' });
+    const b = reduce({ ...newLobby(3), seed: 'depart-7' }, { type: 'START_GAME' });
+    expect(a.turnIndex).toBe(b.turnIndex);
+    expect(a.events.find((e) => e.t === 'TURN_STARTED')).toEqual(
+      b.events.find((e) => e.t === 'TURN_STARTED'),
+    );
+  });
+
+  it('annonce le tour du joueur tiré au sort, pas celui du premier siège', () => {
+    const s = reduce({ ...newLobby(4), seed: 'depart-3' }, { type: 'START_GAME' });
+    const debut = s.events.find((e) => e.t === 'TURN_STARTED');
+    expect(debut && 'playerId' in debut ? debut.playerId : null).toBe(
+      s.players[s.turnIndex]?.id,
+    );
+  });
+
   it('journalise le démarrage', () => {
     const s = reduce(newLobby(2), { type: 'START_GAME' });
     expect(s.events[0]?.t).toBe('GAME_STARTED');

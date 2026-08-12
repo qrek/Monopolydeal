@@ -11,12 +11,18 @@ describe('Modes de jeu', () => {
     for (const p of s.players) expect(p.hand).toHaveLength(STARTING_HAND);
   });
 
-  it('le duel compense le second joueur', () => {
-    const s = reduce(newLobby(2, 'DUEL'), { type: 'START_GAME' });
-    expect(player(s, 'p1').hand).toHaveLength(STARTING_HAND);
-    expect(player(s, 'p2').hand).toHaveLength(
-      STARTING_HAND + rulesFor('DUEL').secondPlayerBonus,
-    );
+  it('le duel compense celui qui ne commence pas', () => {
+    // Le premier joueur est tiré au sort : la compensation se lit donc par
+    // rapport au tirage, jamais par rapport à l'ordre d'arrivée dans le salon.
+    for (const seed of ['seed-de-test', 'un-autre-seed', 'troisieme']) {
+      const s = reduce({ ...newLobby(2, 'DUEL'), seed }, { type: 'START_GAME' });
+      const ouvreur = s.players[s.turnIndex];
+      const autre = s.players[(s.turnIndex + 1) % 2];
+      expect(ouvreur?.hand).toHaveLength(STARTING_HAND);
+      expect(autre?.hand).toHaveLength(
+        STARTING_HAND + rulesFor('DUEL').secondPlayerBonus,
+      );
+    }
   });
 
   it('le duel refuse trois joueurs', () => {

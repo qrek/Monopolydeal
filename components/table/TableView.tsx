@@ -52,6 +52,8 @@ import {
   type RedactedPlayer,
 } from '@/lib/engine';
 import type { GameView } from '@/lib/server/games';
+import { playerColor } from '@/lib/ui/avatar';
+import { COUCHE } from '@/lib/ui/couches';
 import {
   fitBank,
   fitGroups,
@@ -115,6 +117,7 @@ export function TableView({ view }: { view: GameView }) {
   /** Adversaire dont le plateau est ouvert en détail. */
   const [boardOf, setBoardOf] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const state = view.state;
   const ctl = usePlayController(view.game.code, view.viewerId, applyView);
@@ -170,10 +173,12 @@ export function TableView({ view }: { view: GameView }) {
   );
 
   // La couleur choisie vit sur la ligne de salon, pas dans l'état du moteur :
-  // c'est de la présentation, et le moteur n'a pas à la connaître.
+  // c'est de la présentation, et le moteur n'a pas à la connaître. À défaut de
+  // choix, on retombe sur la couleur dérivée de l'identité — celle de l'avatar,
+  // pour que tout ce qui désigne un joueur parle de la même couleur que lui.
   const colorOf = useMemo(() => {
     const carte = new Map(view.players.map((p) => [p.user_id, p.color]));
-    return (id: string) => carte.get(id) ?? null;
+    return (id: string) => playerColor(id, carte.get(id) ?? null);
   }, [view.players]);
 
   if (!state || !me) {
@@ -211,7 +216,19 @@ export function TableView({ view }: { view: GameView }) {
     scale.mine,
   );
   const over = view.game.status === 'finished';
-  const playable = !over && myTurn && state.phase === 'PLAY' && left > 0;
+  // Une fenêtre ouverte prend la main sur la table : sans cela, l'éventail
+  // restait saisissable derrière les règles ou le journal — on relevait une
+  // carte sans la voir, et on la retrouvait sélectionnée en refermant.
+  const windowOpen =
+    logOpen ||
+    rulesOpen ||
+    summaryOpen ||
+    boardOf !== null ||
+    ctl.prompt !== null ||
+    Boolean(debt) ||
+    Boolean(response) ||
+    mustDiscard;
+  const playable = !over && !windowOpen && myTurn && state.phase === 'PLAY' && left > 0;
   const held = ctl.drag?.cardId ?? ctl.selected;
 
   return (
@@ -260,9 +277,21 @@ export function TableView({ view }: { view: GameView }) {
             </span>
           </span>
 
-          <span className="truncate text-[0.68rem] font-bold text-ink-soft">
-            {PHASE_LABEL[state.phase]}
-            {!myTurn && current && ` — ${current.name}`}
+          {/* Qui joue, et de quelle couleur. La pastille reprend celle du
+              joueur : c'est le même repère que sur son siège et sur le bandeau
+              de passage de main. */}
+          <span className="flex min-w-0 items-center gap-1 text-[0.68rem] font-bold text-ink-soft">
+            {current && (
+              <span
+                aria-hidden
+                className="size-2 shrink-0 rounded-full border border-ink/50"
+                style={{ background: colorOf(current.id) }}
+              />
+            )}
+            <span className="truncate">
+              {PHASE_LABEL[state.phase]}
+              {!myTurn && current && ` — ${current.name}`}
+            </span>
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -294,6 +323,7 @@ export function TableView({ view }: { view: GameView }) {
               className="tap rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
               label="Règles"
               mode={view.game.mode}
+              onOpenChange={setRulesOpen}
             />
             <button
               onClick={() => setLogOpen((v) => !v)}
@@ -400,9 +430,14 @@ export function TableView({ view }: { view: GameView }) {
         {/* Ma main : posée sur le tapis, sans cadre. --------------------- */}
         {/* `relative` + éventail ancré en bas : l'arc peut dépasser au-dessus
             du pied, dans le tapis vide, au lieu d'y réserver de la hauteur. */}
+        {/* `isolate` : les cartes de l'éventail portent leur propre z-index —
+            jusqu'à 100 pour celle qu'on relève — et sans contexte à elles,
+            elles concouraient avec les fenêtres. Une carte sélectionnée se
+            peignait donc PAR-DESSUS les règles ou le paiement, et restait
+            cliquable à travers. Ici, ces z-index ne sortent plus du pied. */}
         <footer
-          style={{ height: bands.hand }}
-          className="safe-b relative shrink-0 pb-1"
+          style={{ height: bands.hand, zIndex: COUCHE.main }}
+          className="safe-b relative isolate shrink-0 pb-1"
         >
           {/* Au-dessus de l'éventail, qui occupe désormais tout le pied. */}
           {ctl.error && (
@@ -454,12 +489,14 @@ export function TableView({ view }: { view: GameView }) {
       {logOpen && (
         <>
           <button
-            className="fixed inset-0 z-40 bg-ink/40"
+            className="fixed inset-0 bg-ink/40"
+            style={{ zIndex: COUCHE.tiroir }}
             aria-label="Fermer le journal"
             onClick={() => setLogOpen(false)}
           />
           <aside
-            className="fixed inset-y-0 right-0 z-50 w-72 border-l-2 border-ink bg-cream pr-[env(safe-area-inset-right)] shadow-panel"
+            className="fixed inset-y-0 right-0 w-72 border-l-2 border-ink bg-cream pr-[env(safe-area-inset-right)] shadow-panel"
+            style={{ zIndex: COUCHE.tiroir + 1 }}
             aria-label="Journal de partie"
           >
             <div className="no-scrollbar h-full overflow-y-auto p-3">
@@ -475,6 +512,7 @@ export function TableView({ view }: { view: GameView }) {
         events={state.events}
         viewerId={view.viewerId}
         nameOf={nameOf}
+        colorOf={colorOf}
         winnerId={state.winnerId}
         handWidth={scale.hand}
       />

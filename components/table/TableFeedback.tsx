@@ -20,6 +20,8 @@ import { useEffect, useRef, useState } from 'react';
 import { CardFace } from '@/components/cards/CardFace';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { ACTIONS, type CardId, type GameEvent } from '@/lib/engine';
+import { inkOn } from '@/lib/ui/color';
+import { COUCHE } from '@/lib/ui/couches';
 import { vibrer } from '@/lib/ui/haptique';
 import { CUE_MS, EASE_OUT, FLOAT_MS, TURN_BANNER_MS } from '@/lib/ui/motion';
 
@@ -65,19 +67,27 @@ export function TableFeedback({
   events,
   viewerId,
   nameOf,
+  colorOf,
   winnerId,
   handWidth,
 }: {
   events: GameEvent[];
   viewerId: string;
   nameOf: (id: string) => string;
+  /** Couleur du joueur, telle qu'elle s'affiche partout ailleurs. */
+  colorOf: (id: string) => string;
   winnerId: string | null;
   handWidth: number;
 }) {
   const reduced = useReducedMotion();
   const fresh = useFreshEvents(events);
   const [cue, setCue] = useState<Cue | null>(null);
-  const [turn, setTurn] = useState<{ id: number; mine: boolean; name: string } | null>(null);
+  const [turn, setTurn] = useState<{
+    id: number;
+    mine: boolean;
+    name: string;
+    color: string;
+  } | null>(null);
   const [floats, setFloats] = useState<Float[]>([]);
   const seq = useRef(0);
 
@@ -87,6 +97,8 @@ export function TableFeedback({
   // propos. On le lit donc par référence : seul un NOUVEL événement déclenche.
   const nameRef = useRef(nameOf);
   nameRef.current = nameOf;
+  const colorRef = useRef(colorOf);
+  colorRef.current = colorOf;
 
   // Le retour haptique se branche sur les mêmes événements que le reste : ce
   // qui mérite une animation mérite une vibration, et rien d'autre.
@@ -114,6 +126,7 @@ export function TableFeedback({
             id: ++seq.current,
             mine: e.playerId === viewerId,
             name: nameRef.current(e.playerId),
+            color: colorRef.current(e.playerId),
           });
           break;
         case 'ACTION_PLAYED': {
@@ -186,7 +199,10 @@ export function TableFeedback({
   if (reduced) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[55] overflow-hidden">
+    <div
+      className="pointer-events-none fixed inset-0 overflow-hidden"
+      style={{ zIndex: COUCHE.narration }}
+    >
       {/* Coup joué : la carte au centre, le temps de la voir. --------------- */}
       <AnimatePresence>
         {cue && (
@@ -230,10 +246,12 @@ export function TableFeedback({
             exit={{ opacity: 0, x: '100%' }}
             transition={EASE_OUT}
           >
+            {/* Le bandeau prend la couleur que le joueur a choisie dans le
+                salon : à quatre, « Tour de Théo » se lit une demi-seconde plus
+                vite quand la bande est déjà de sa couleur. */}
             <div
-              className={`border-y-2 border-ink py-1.5 text-center shadow-panel ${
-                turn.mine ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
-              }`}
+              className="border-y-2 border-ink py-1.5 text-center shadow-panel"
+              style={{ background: turn.color, color: inkOn(turn.color) }}
             >
               <p className="text-lg font-extrabold uppercase leading-none tracking-tight">
                 {turn.mine ? 'À toi de jouer' : `Tour de ${turn.name}`}

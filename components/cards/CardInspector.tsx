@@ -17,6 +17,7 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 
 import { CardFace } from '@/components/cards/CardFace';
 import type { CardId } from '@/lib/engine';
+import { COUCHE } from '@/lib/ui/couches';
 
 /** Assez long pour ne pas se déclencher sur une tape, assez court pour ne pas douter. */
 export const LONG_PRESS_MS = 400;
@@ -115,7 +116,8 @@ function CardZoom({ cardId, onClose }: { cardId: CardId | null; onClose: () => v
     <AnimatePresence>
       {cardId && (
         <motion.div
-          className="fixed inset-0 z-[90] grid place-items-center bg-ink/70 p-4"
+          className="fixed inset-0 grid place-items-center bg-ink/70 p-4"
+          style={{ zIndex: COUCHE.loupe }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

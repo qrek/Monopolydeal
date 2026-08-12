@@ -19,6 +19,7 @@ import {
   type GameEvent,
   type RedactedPlayer,
 } from '@/lib/engine';
+import { COUCHE } from '@/lib/ui/couches';
 import { summarize } from '@/lib/ui/summary';
 
 export function GameSummary({
@@ -41,7 +42,10 @@ export function GameSummary({
   const iWon = winnerId === viewerId;
 
   return (
-    <div className="safe-px fixed inset-0 z-[80] grid place-items-center py-3">
+    <div
+      className="safe-px fixed inset-0 grid place-items-center py-3"
+      style={{ zIndex: COUCHE.resume }}
+    >
       <motion.div
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}

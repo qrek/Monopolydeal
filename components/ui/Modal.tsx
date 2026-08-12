@@ -1,12 +1,22 @@
 /**
  * Feuille modale. En paysage, la hauteur est la ressource rare : la modale
  * occupe donc une bande centrale qui défile, jamais tout l'écran.
+ *
+ * Elle sort par un portail, et ce n'est pas un luxe. Le bouton des règles vit
+ * dans le bandeau, qui porte un `z-10` ; un z-index sur un ancêtre ouvre un
+ * contexte d'empilement, et tout ce qu'il contient y reste enfermé — y compris
+ * un `position: fixed`. La fenêtre des règles se peignait donc SOUS le plateau
+ * et sous l'éventail, alors qu'elle porte un z-index bien plus élevé. Ancrée au
+ * `body`, elle ne dépend plus de l'endroit d'où on l'ouvre.
  */
 
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+import { COUCHE } from '@/lib/ui/couches';
 
 interface ModalProps {
   open: boolean;
@@ -26,6 +36,11 @@ export function Modal({
   children,
   footer,
 }: ModalProps) {
+  // Le portail n'existe qu'une fois monté : au rendu serveur, il n'y a pas de
+  // `document` à qui s'accrocher.
+  const [monte, setMonte] = useState(false);
+  useEffect(() => setMonte(true), []);
+
   useEffect(() => {
     if (!open || !onClose) return;
     const onKey = (e: KeyboardEvent) => {
@@ -35,11 +50,14 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  return (
+  if (!monte) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 grid place-items-center p-3"
+          className="fixed inset-0 grid place-items-center p-3"
+          style={{ zIndex: COUCHE.fenetre }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -91,6 +109,7 @@ export function Modal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
