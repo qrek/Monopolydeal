@@ -24,6 +24,7 @@ export const OpponentSeat = memo(function OpponentSeat({
   seatWidth,
   stackHeight,
   onOpen,
+  color,
 }: {
   player: RedactedPlayer;
   isCurrent: boolean;
@@ -34,6 +35,8 @@ export const OpponentSeat = memo(function OpponentSeat({
   stackHeight: number;
   /** Ouvre son plateau en détail. */
   onOpen: () => void;
+  /** Couleur choisie dans le salon, ou null. */
+  color?: string | null;
 }) {
   const sets = completeColors(player).length;
 
@@ -60,6 +63,7 @@ export const OpponentSeat = memo(function OpponentSeat({
           name={player.name}
           seed={player.id}
           size={20}
+          color={color}
           offline={!player.connected}
         />
         <span

@@ -1,4 +1,4 @@
-import { avatarColor, initials } from '@/lib/ui/avatar';
+import { initials, playerColor } from '@/lib/ui/avatar';
 
 interface AvatarProps {
   name: string;
@@ -7,10 +7,12 @@ interface AvatarProps {
   size?: number;
   /** Grisé quand le joueur a fermé l'onglet. */
   offline?: boolean;
+  /** Couleur choisie dans le salon ; à défaut, celle dérivée de l'identité. */
+  color?: string | null;
 }
 
-export function Avatar({ name, seed, size = 44, offline = false }: AvatarProps) {
-  const color = avatarColor(seed);
+export function Avatar({ name, seed, size = 44, offline = false, color: chosen }: AvatarProps) {
+  const color = playerColor(seed, chosen);
   return (
     <span
       aria-hidden

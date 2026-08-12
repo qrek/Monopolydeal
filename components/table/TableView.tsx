@@ -169,6 +169,13 @@ export function TableView({ view }: { view: GameView }) {
     [state],
   );
 
+  // La couleur choisie vit sur la ligne de salon, pas dans l'état du moteur :
+  // c'est de la présentation, et le moteur n'a pas à la connaître.
+  const colorOf = useMemo(() => {
+    const carte = new Map(view.players.map((p) => [p.user_id, p.color]));
+    return (id: string) => carte.get(id) ?? null;
+  }, [view.players]);
+
   if (!state || !me) {
     return (
       <main className="grid min-h-dvh place-items-center px-5 text-center">
@@ -310,6 +317,7 @@ export function TableView({ view }: { view: GameView }) {
                 seatWidth={Math.floor((rowWidth - 12 * (opponents.length - 1)) / opponents.length)}
                 stackHeight={bands.opponentStack}
                 onOpen={() => setBoardOf(p.id)}
+                color={colorOf(p.id)}
               />
             ))}
           </section>

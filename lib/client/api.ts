@@ -42,6 +42,12 @@ export const api = {
       body: JSON.stringify({ name, mode }),
     }),
 
+  setColor: (code: string, color: string | null) =>
+    call<{ ok: true }>(`/api/games/${code}/color`, {
+      method: 'POST',
+      body: JSON.stringify({ color }),
+    }),
+
   joinGame: (code: string, name: string) =>
     call<{ gameId: string }>(`/api/games/${code}/join`, {
       method: 'POST',
