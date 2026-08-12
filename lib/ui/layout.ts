@@ -1,12 +1,18 @@
 /**
- * Le jeu se joue en paysage sur un téléphone : la contrainte n'est pas la
- * largeur mais la HAUTEUR, qui doit loger d'un seul tenant la rangée
- * d'adversaires, mon plateau et ma main.
+ * Le budget de place de la table, en hauteur comme en largeur.
  *
  * Tout part de la main. C'est la carte qu'on lit vraiment — nom de rue, grille
  * de loyers, texte de règle — donc elle prend sa part d'abord et les autres
  * bandes se partagent le reste. L'inverse donnait des cartes de 64 px où le nom
  * de rue tombait à 3,6 px : présent, mais illisible.
+ *
+ * Il y a DEUX dispositions, et ce n'est pas la même en plus étroit : c'est
+ * l'inverse de la même. En paysage, la hauteur est la ressource rare — 208 px
+ * de milieu sur un téléphone — et les trois zones de mon plateau tiennent côte
+ * à côte sur 651 px. En portrait, le rapport s'inverse : 635 px de milieu mais
+ * 374 px de large seulement. Rien ne tient plus côte à côte, en revanche chaque
+ * chose peut prendre toute la largeur. D'où la colonne : un adversaire par
+ * ligne, mes propriétés pleine largeur, ma banque pleine largeur.
  */
 
 'use client';
@@ -120,6 +126,13 @@ export interface Bands {
   mineStack: number;
   /** Hauteur laissée aux cartes d'un lot adverse. */
   opponentStack: number;
+  /**
+   * Portrait : hauteur de ma banque, qui a sa propre ligne. En paysage elle
+   * partage la rangée du plateau et se règle en largeur, pas en hauteur.
+   */
+  bank: number;
+  /** Portrait : hauteur minimale du tapis, au milieu de la colonne. */
+  mat: number;
 }
 
 const HEADER = 32;
@@ -128,6 +141,14 @@ const MINE_LABEL = 16;
 /** Ligne pseudo/argent d'un adversaire, plus les marges. */
 const OPPONENT_CHROME = 30;
 const GAPS = 10;
+/**
+ * Écarts fixes de la colonne : le retrait haut et bas du conteneur (6 + 4), les
+ * deux écarts entre ses trois blocs (2 × 4) et celui qui sépare mes lots de ma
+ * banque (8).
+ */
+const COLONNE_ECARTS = 26;
+/** Écart entre deux bandes adverses. */
+const BAND_GAP = 6;
 
 /**
  * Mes cartes posées, au plus grand : une fraction des cartes en main. Mon
@@ -138,6 +159,14 @@ const GAPS = 10;
 const MINE_CAP_RATIO = 0.68;
 /** Les lots adverses, eux, restent un peu plus petits que les miens. */
 const OPPONENT_CAP_RATIO = 0.88;
+
+/**
+ * Parts de la colonne. Chaque adversaire compte pour une ; mes lots pour une et
+ * demie — ce sont eux que je manipule — et ma banque pour une, sans plus : une
+ * rangée de billets se lit à une seule hauteur de carte.
+ */
+const POIDS_LOTS = 1.6;
+const POIDS_BANQUE = 1.1;
 
 /** Hauteur naturelle d'un empilement de lots, à une largeur de carte donnée. */
 function stackHeight(cardWidth: number): number {
@@ -152,16 +181,23 @@ function stackHeight(cardWidth: number): number {
  * une centaine de pixels de vide pendant que mes propriétés et ma banque
  * restaient minuscules, tassées en bas.
  */
-export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
-  // Le pied ne loge que la carte et une petite marge : l'arc de l'éventail
-  // déborde vers le HAUT, dans le tapis vide au-dessus de la main. Réserver sa
-  // hauteur complète ici repoussait mes propriétés et ma banque loin des cartes
-  // pour rien.
-  const hand =
+/**
+ * Hauteur du pied. Il ne loge que la carte et une petite marge : l'arc de
+ * l'éventail déborde vers le HAUT, dans le tapis vide au-dessus de la main.
+ * Réserver sa hauteur complète repoussait mes propriétés et ma banque loin des
+ * cartes pour rien.
+ */
+function handBand(scale: TableScale): number {
+  return (
     Math.round(scale.hand * CARD_RATIO) -
     handSink(scale.hand) +
     fanBottomBleed(scale.hand) +
-    12;
+    12
+  );
+}
+
+export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
+  const hand = handBand(scale);
 
   const middle = Math.max(60, viewportHeight - HEADER - hand - GAPS);
 
@@ -184,7 +220,74 @@ export function bandHeights(scale: TableScale, viewportHeight: number): Bands {
     ),
   );
 
-  return { hand, mineStack, opponentStack };
+  return { hand, mineStack, opponentStack, bank: 0, mat: 0 };
+}
+
+/**
+ * Répartition en colonne, pour un écran plus haut que large.
+ *
+ * L'ordre de service ne change pas — la main, puis mon plateau, puis les
+ * adversaires — mais chacun a désormais sa ligne pleine largeur. Le tapis se
+ * loge entre les adversaires et moi, à sa place sur une vraie table : c'est là
+ * qu'on pousse une carte action, et c'est là que le pouce tombe.
+ *
+ * Les parts (34 % pour mes lots, 20 % pour ma banque) ne servent qu'à une
+ * table pleine, où tout le monde est à l'étroit. Dès qu'il y a de l'air, les
+ * plafonds prennent le relais : au-delà, les cartes ne grandissent plus et la
+ * bande n'ajouterait que du vide. Le reste va au tapis, qui s'étire.
+ */
+export function bandHeightsPortrait(
+  scale: TableScale,
+  viewportHeight: number,
+  opponents: number,
+): Bands {
+  const hand = handBand(scale);
+  const n = Math.max(1, opponents);
+  // Les écarts ne sont pas du détail : à trois adversaires ils pèsent 38 px,
+  // soit un tiers de bande. Les oublier faisait défiler la liste adverse de
+  // douze pixels sur un téléphone où tout aurait dû tenir.
+  const ecarts = COLONNE_ECARTS + BAND_GAP * (n - 1);
+  const chrome = MINE_LABEL * 2 + n * OPPONENT_CHROME;
+  const mat = Math.round(scale.mine * 1.1);
+  /** Ce qui reste à partager entre mes lots, ma banque et les adversaires. */
+  const libre = viewportHeight - HEADER - hand - ecarts - chrome - mat;
+
+  const mineCap = stackHeight(Math.round(scale.hand * MINE_CAP_RATIO));
+  const bankCap = Math.round(Math.round(scale.hand * MINE_CAP_RATIO) * CARD_RATIO);
+  const opponentCap = stackHeight(
+    Math.round(scale.hand * MINE_CAP_RATIO * OPPONENT_CAP_RATIO),
+  );
+  /** Une carte au plancher : un bandeau de couleur et sa pastille d'avancement. */
+  const plancher = stackHeight(MIN_CARD);
+  const plancherBanque = Math.round(MIN_CARD * CARD_RATIO);
+
+  const borne = (v: number, min: number, max: number): number =>
+    Math.max(min, Math.min(max, v));
+
+  // Une part par adversaire, une part et demie pour mes lots, une pour ma
+  // banque. Des pourcentages fixes marchaient à trois joueurs et s'effondraient
+  // à cinq : mon plateau gardait sa part pleine pendant que les quatre bandes
+  // adverses se partageaient les restes, à 27 px de carte. Le poids, lui, tient
+  // compte du nombre de convives.
+  const unite = libre / (POIDS_LOTS + POIDS_BANQUE + n);
+
+  let mineStack = borne(Math.round(unite * POIDS_LOTS), plancher, mineCap);
+  let bank = borne(Math.round(unite * POIDS_BANQUE), plancherBanque, bankCap);
+  let opponentStack = borne(Math.floor(unite), plancher, opponentCap);
+
+  // Écran trop court pour tout le monde — un petit téléphone à cinq joueurs
+  // demande 449 px là où il en reste 325. On rabote au prorata plutôt que de
+  // laisser une bande pousser la main hors de l'écran ; si même les planchers
+  // ne tiennent pas, la liste des adversaires défile (voir la vue).
+  const total = (): number => mineStack + bank + n * opponentStack;
+  if (libre > 0 && total() > libre) {
+    const facteur = libre / total();
+    mineStack = Math.max(plancher, Math.floor(mineStack * facteur));
+    bank = Math.max(plancherBanque, Math.floor(bank * facteur));
+    opponentStack = Math.max(plancher, Math.floor(opponentStack * facteur));
+  }
+
+  return { hand, mineStack, opponentStack, bank, mat };
 }
 
 // --- Ajustement en largeur ---------------------------------------------------
@@ -269,28 +372,24 @@ export function useMeasuredWidth(
 export interface Viewport {
   width: number;
   height: number;
-  /** Téléphone tenu à la verticale : le jeu demande de tourner l'écran. */
-  portraitPhone: boolean;
+  /** Écran plus haut que large : la table se dispose en colonne. */
+  portrait: boolean;
 }
 
 export function useViewport(): Viewport {
   const [v, setV] = useState<Viewport>({
     width: 812,
     height: 375,
-    portraitPhone: false,
+    portrait: false,
   });
 
   useEffect(() => {
     const read = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      setV({
-        width,
-        height,
-        // Écran étroit ET plus haut que large : téléphone debout, la table n'y
-        // tient pas.
-        portraitPhone: width < 700 && height > width,
-      });
+      // Un seul critère, et pas de seuil de taille : ce qui décide de la
+      // disposition, c'est la forme de l'écran, pas le genre d'appareil.
+      setV({ width, height, portrait: height > width });
     };
     read();
     window.addEventListener('resize', read);
@@ -304,10 +403,16 @@ export function useViewport(): Viewport {
   return v;
 }
 
-export function useTable(): { scale: TableScale; bands: Bands; viewport: Viewport } {
+export function useTable(opponents = 1): {
+  scale: TableScale;
+  bands: Bands;
+  viewport: Viewport;
+} {
   const viewport = useViewport();
   const base = scaleFor(viewport.height);
-  const bands = bandHeights(base, viewport.height);
+  const bands = viewport.portrait
+    ? bandHeightsPortrait(base, viewport.height, opponents)
+    : bandHeights(base, viewport.height);
 
   // Les cartes posées remplissent la bande qui leur revient, au lieu de
   // flotter au milieu d'un vide.
