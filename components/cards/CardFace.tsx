@@ -486,9 +486,11 @@ function ActionFace({ card, width }: { card: Card & { kind: 'ACTION' }; width: n
       >
         <PlateName text={card.label} detail={detail} />
       </Plate>
-      <div className="grid min-h-0 flex-1 place-items-center">
-        <ActionGlyph kind={card.action} className="w-[3.4em]" />
-      </div>
+      {/* Ce que la carte FAIT, juste sous son nom — comme le barème d'une
+          propriété. C'était en pied de carte, c'est-à-dire dans le cinquième
+          qui passe sous le bord de l'écran quand la carte est en main : on
+          tenait un Coup de filet sans pouvoir lire « Tu prends 1 lot complet ».
+          Le pictogramme, lui, se reconnaît de loin et supporte d'être en bas. */}
       {detail !== 'minimal' && (
         <Ladder
           dense={detail !== 'full'}
@@ -502,6 +504,9 @@ function ActionFace({ card, width }: { card: Card & { kind: 'ACTION' }; width: n
           }
         />
       )}
+      <div className="grid min-h-0 flex-1 place-items-center">
+        <ActionGlyph kind={card.action} className="w-[3.4em]" />
+      </div>
     </Frame>
   );
 }
