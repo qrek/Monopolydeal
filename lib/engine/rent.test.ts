@@ -242,6 +242,72 @@ describe('Double loyer', () => {
     expect(player(mid, 'p1').hand).toHaveLength(0);
   });
 
+  describe('Constructions', () => {
+    it('la Maison augmente le loyer d’un lot complet', () => {
+      const s = newTable();
+      hand(s, 'p1', [rent('red', 'yellow', 0)]);
+      group(s, 'p1', 'red', [prop('red', 0), prop('red', 1), prop('red', 2)]);
+      const lot = player(s, 'p1').groups[0]!;
+      lot.house = act('HOUSE', 0);
+      bank(s, 'p2', [money(10, 0)]);
+      const mid = reduceAll(s, [
+        { type: 'PLAY_RENT', playerId: 'p1', cardId: rent('red', 'yellow', 0), color: 'red' },
+        { type: 'RESPOND_ACCEPT', playerId: 'p2' },
+      ]);
+      // Rouge complet = 6 M, plus 3 M de Maison.
+      expect(mid.pending?.targets[0]?.debt).toBe(9);
+    });
+
+    it('Maison et Hôtel se cumulent', () => {
+      const s = newTable();
+      hand(s, 'p1', [rent('red', 'yellow', 0)]);
+      group(s, 'p1', 'red', [prop('red', 0), prop('red', 1), prop('red', 2)]);
+      const lot = player(s, 'p1').groups[0]!;
+      lot.house = act('HOUSE', 0);
+      lot.hotel = act('HOTEL', 0);
+      bank(s, 'p2', [money(10, 0)]);
+      const mid = reduceAll(s, [
+        { type: 'PLAY_RENT', playerId: 'p1', cardId: rent('red', 'yellow', 0), color: 'red' },
+        { type: 'RESPOND_ACCEPT', playerId: 'p2' },
+      ]);
+      expect(mid.pending?.targets[0]?.debt).toBe(6 + 3 + 4);
+    });
+
+    it('un lot incomplet ne profite d’aucune construction', () => {
+      const s = newTable();
+      hand(s, 'p1', [rent('red', 'yellow', 0)]);
+      group(s, 'p1', 'red', [prop('red', 0), prop('red', 1)]);
+      const lot = player(s, 'p1').groups[0]!;
+      lot.house = act('HOUSE', 0);
+      bank(s, 'p2', [money(10, 0)]);
+      const mid = reduceAll(s, [
+        { type: 'PLAY_RENT', playerId: 'p1', cardId: rent('red', 'yellow', 0), color: 'red' },
+        { type: 'RESPOND_ACCEPT', playerId: 'p2' },
+      ]);
+      expect(mid.pending?.targets[0]?.debt).toBe(3);
+    });
+
+    it('le Double loyer double aussi les constructions', () => {
+      const s = newTable();
+      hand(s, 'p1', [rent('red', 'yellow', 0), act('DOUBLE_RENT', 0)]);
+      group(s, 'p1', 'red', [prop('red', 0), prop('red', 1), prop('red', 2)]);
+      const lot = player(s, 'p1').groups[0]!;
+      lot.house = act('HOUSE', 0);
+      bank(s, 'p2', [money(10, 0), money(10, 0)]);
+      const mid = reduceAll(s, [
+        {
+          type: 'PLAY_RENT',
+          playerId: 'p1',
+          cardId: rent('red', 'yellow', 0),
+          color: 'red',
+          doubleCardIds: [act('DOUBLE_RENT', 0)],
+        },
+        { type: 'RESPOND_ACCEPT', playerId: 'p2' },
+      ]);
+      expect(mid.pending?.targets[0]?.debt).toBe(18);
+    });
+  });
+
   describe('Portée : bicolore contre universelle', () => {
     it('une quittance bicolore frappe tous les adversaires', () => {
       const s = newTable(4);
