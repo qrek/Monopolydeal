@@ -40,7 +40,7 @@ export function AbortButton({ code }: { code: string }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
+        className="tap rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
         title="Interrompre la partie pour tout le monde"
       >
         Arrêter

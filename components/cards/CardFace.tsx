@@ -45,7 +45,10 @@ type Detail = 'full' | 'compact' | 'minimal';
 
 function detailFor(width: number): Detail {
   if (width >= 84) return 'full';
-  if (width >= 46) return 'compact';
+  // 56 px et non 46 : en dessous, le nom de rue tombait à 3,6 px pour un
+  // contraste de 2,28:1 — de la purée de pixels qui brouille la plaque de
+  // couleur, seule information encore utile à cette taille.
+  if (width >= 56) return 'compact';
   return 'minimal';
 }
 

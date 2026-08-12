@@ -109,6 +109,28 @@
     padding-left: max(0.5rem, env(safe-area-inset-left));
     padding-right: max(0.5rem, env(safe-area-inset-right));
   }
+  /**
+   * Cible tactile de 44 px sans grossir le dessin.
+   *
+   * Le bandeau de la table ne fait que 32 px de haut : ses boutons ne peuvent
+   * pas grandir sans lui voler de la hauteur, qui est la ressource rare en
+   * paysage. On étend donc la zone sensible par-dessous, en transparent.
+   */
+  .tap {
+    position: relative;
+  }
+  .tap::after {
+    content: '';
+    position: absolute;
+    /* Verticalement généreux, horizontalement à peine : les boutons du bandeau
+       sont séparés de 6 px, et deux zones qui se chevauchent rendraient le tap
+       ambigu. 10 px de haut et de bas suffisent — un bouton de 24 px atteint
+       44, un de 28 en atteint 48.
+       Une formule en pourcentage ne marcherait pas : dans `inset`, les
+       pourcentages se résolvent sur le bloc conteneur, pas sur l'élément. */
+    inset: -10px -3px;
+  }
+
   .safe-b {
     padding-bottom: env(safe-area-inset-bottom);
   }

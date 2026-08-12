@@ -87,9 +87,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (subscribedTo !== view.game.id) {
         subscription?.unsubscribe();
         subscribedTo = view.game.id;
-        subscription = subscribeToGame(view.game.id, () => {
-          void get().refresh();
-        });
+        subscription = subscribeToGame(
+          view.game.id,
+          () => {
+            void get().refresh();
+          },
+          // Le filet interroge l'état courant à chaque battement : capturer la
+          // vue ici l'aurait figée sur celle du montage.
+          () => ({ over: get().view?.game.status === 'finished' }),
+        );
       }
       set({ view, status: 'ready' });
     } catch (e) {

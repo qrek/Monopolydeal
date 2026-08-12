@@ -33,6 +33,7 @@ import { BankRow } from '@/components/table/BankStack';
 import { GameLog } from '@/components/table/GameLog';
 import { GameSummary } from '@/components/table/GameSummary';
 import { HandFan } from '@/components/table/HandFan';
+import { LiveRegion } from '@/components/table/LiveRegion';
 import { OpponentBoard } from '@/components/table/OpponentBoard';
 import { OpponentSeat } from '@/components/table/OpponentSeat';
 import { PropertyGroups } from '@/components/table/PropertyGroups';
@@ -224,9 +225,12 @@ export function TableView({ view }: { view: GameView }) {
           />
         </div>
 
+        {/* Ce que la table dit à voix haute, pour qui ne la voit pas. */}
+        <LiveRegion events={state.events} nameOf={nameOf} />
+
         {/* Bandeau ------------------------------------------------------- */}
         <header className="safe-px relative z-10 flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
-          <Link href="/" aria-label="Quitter la partie" className="shrink-0">
+          <Link href="/" aria-label="Quitter la partie" className="tap shrink-0">
             <Wordmark size={18} short />
           </Link>
           <span className="shrink-0 rounded-[0.2rem] border-2 border-ink bg-paper px-1.5 py-0.5 text-[0.68rem] font-extrabold tracking-[0.15em]">
@@ -261,7 +265,7 @@ export function TableView({ view }: { view: GameView }) {
               <Button
                 block={false}
                 variant="secondary"
-                className="!min-h-7 px-2 text-xs"
+                className="tap !min-h-7 px-2 text-xs"
                 onClick={() => setSummaryOpen(true)}
               >
                 Résumé
@@ -269,29 +273,19 @@ export function TableView({ view }: { view: GameView }) {
             ) : (
               <>
                 <ActionPips played={state.actionsPlayed} active={myTurn} />
-                <Button
-                  block={false}
-                  variant="secondary"
-                  className="!min-h-7 px-2 text-xs"
-                  disabled={!myTurn || (state.phase !== 'PLAY' && state.phase !== 'DRAW')}
-                  loading={ctl.busy}
-                  onClick={() => void ctl.send({ type: 'END_TURN', playerId: view.viewerId })}
-                >
-                  Fin de tour
-                </Button>
                 <AbortButton code={view.game.code} />
               </>
             )}
             {/* Le doute arrive en cours de partie, pas avant : les règles
                 doivent être à un pouce, sans quitter la table. */}
             <RulesButton
-              className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
+              className="tap rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
               label="Règles"
               mode={view.game.mode}
             />
             <button
               onClick={() => setLogOpen((v) => !v)}
-              className="rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
+              className="tap rounded-[0.3rem] border-2 border-ink/50 px-1.5 py-1 text-[0.68rem] font-bold transition-colors hover:bg-cream"
               aria-expanded={logOpen}
             >
               Journal
@@ -407,9 +401,30 @@ export function TableView({ view }: { view: GameView }) {
           )}
           {/* L'éventail passe sous le bord bas : le pied ne réserve que la
               part visible de la carte, et le reste est rogné par la page. */}
+          {/* Fin de tour, au pouce. Dans le coin haut-droit c'était le bouton
+              le plus pressé du jeu et le plus loin de la main ; ici il tombe
+              dans l'espace que l'éventail laisse libre à sa droite — une
+              quatre-vingtaine de pixels, même avec sept cartes. */}
+          {myTurn && (state.phase === 'PLAY' || state.phase === 'DRAW') && (
+            <button
+              onClick={() => void ctl.send({ type: 'END_TURN', playerId: view.viewerId })}
+              disabled={ctl.busy}
+              className="absolute bottom-[max(0.5rem,env(safe-area-inset-bottom))] right-[max(0.5rem,env(safe-area-inset-right))] z-20 grid h-11 w-[3.9rem] place-items-center rounded-card border-2 border-ink bg-cream text-[0.7rem] font-extrabold uppercase leading-tight tracking-tight text-ink shadow-card transition-colors hover:bg-board-dark active:translate-y-px disabled:opacity-50"
+            >
+              Fin de
+              <br />
+              tour
+            </button>
+          )}
+
+          {/* L'enfoncement recule devant la barre de geste système : sur un
+              iPhone, un glisser démarré dans les vingt derniers pixels bascule
+              d'application au lieu de jouer la carte. */}
           <div
             className="safe-px absolute inset-x-0"
-            style={{ bottom: -handSink(scale.hand) }}
+            style={{
+              bottom: `calc(env(safe-area-inset-bottom) - ${handSink(scale.hand)}px)`,
+            }}
           >
             <HandFan
               cards={me.hand}
