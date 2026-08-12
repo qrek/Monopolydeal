@@ -267,10 +267,17 @@ export function chaptersFor(mode: GameMode): RuleChapter[] {
           profil.minPlayers === profil.maxPlayers
             ? `Exactement ${profil.minPlayers}. Chacun commence avec ${STARTING_HAND} cartes${
                 profil.secondPlayerBonus > 0
-                  ? `, et le second en reçoit ${profil.secondPlayerBonus} de plus`
+                  ? `, et celui qui ne commence pas en reçoit ${profil.secondPlayerBonus} de plus`
                   : ''
               }.`
             : `De ${profil.minPlayers} à ${profil.maxPlayers}. Chacun commence avec ${STARTING_HAND} cartes.`,
+      },
+      {
+        term: 'Qui commence',
+        detail:
+          profil.secondPlayerBonus > 0
+            ? `Tiré au sort au lancement — ce n'est pas forcément l'hôte. L'autre reçoit ${profil.secondPlayerBonus} cartes de plus en compensation.`
+            : 'Tiré au sort au lancement — ce n’est pas forcément l’hôte.',
       },
       {
         term: 'Pioche vide',

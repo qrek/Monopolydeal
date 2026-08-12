@@ -202,25 +202,33 @@ export function RulesBook({ mode = 'CLASSIC' }: { mode?: GameMode }) {
 
 /**
  * Le bouton et sa modale, d'un bloc : trois écrans l'ouvrent, aucun n'a de
- * raison de gérer l'état d'ouverture lui-même.
+ * raison de gérer l'état d'ouverture lui-même. La table, elle, a besoin de
+ * SAVOIR qu'une fenêtre est ouverte pour endormir l'éventail dessous : c'est
+ * tout ce que rapporte `onOpenChange`.
  */
 export function RulesButton({
   className = '',
   label = 'Règles',
   title = 'Règles du jeu',
   mode = 'CLASSIC',
+  onOpenChange,
 }: {
   className?: string;
   label?: string;
   title?: string;
   mode?: GameMode;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const bascule = (v: boolean) => {
+    setOpen(v);
+    onOpenChange?.(v);
+  };
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => bascule(true)}
         className={className}
         aria-haspopup="dialog"
       >
@@ -230,7 +238,7 @@ export function RulesButton({
         open={open}
         title={title}
         subtitle={`${rulesFor(mode).label} — le moteur reste l’arbitre`}
-        onClose={() => setOpen(false)}
+        onClose={() => bascule(false)}
       >
         <RulesBook mode={mode} />
       </Modal>

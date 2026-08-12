@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
 import type { CardId, GameEvent } from '@/lib/engine';
+import { COUCHE } from '@/lib/ui/couches';
 
 /** Durée d'un vol. Assez lent pour être suivi de l'œil, assez court pour ne pas retenir le tour. */
 const VOL_MS = 520;
@@ -111,7 +112,11 @@ export function TransferLayer({
   const fini = (id: number) => setVols((cur) => cur.filter((v) => v.id !== id));
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[64]" aria-hidden>
+    <div
+      className="pointer-events-none fixed inset-0"
+      style={{ zIndex: COUCHE.narration }}
+      aria-hidden
+    >
       <AnimatePresence>
         {vols.map((v) => (
           <motion.div

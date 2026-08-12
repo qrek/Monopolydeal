@@ -24,3 +24,25 @@ export function luminance(hex: string): number {
 export function readableInk(hex: string): string {
   return luminance(hex) > 0.45 ? INK_DARK : INK_LIGHT;
 }
+
+/** Rapport de contraste WCAG entre deux luminances. */
+function contrast(a: number, b: number): number {
+  const [hi, lo] = a > b ? [a, b] : [b, a];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/**
+ * Encre la plus contrastée des deux, mesurée plutôt que seuillée.
+ *
+ * `readableInk` sert les aplats des cartes, où le seuil haut est un parti pris
+ * de direction artistique — le rouge Monopoly veut son encre claire. Les
+ * couleurs de joueur, elles, portent du texte qu'on lit en une demi-seconde :
+ * l'orange de la palette donnait 2,5:1 en encre claire contre 7,2:1 en encre
+ * sombre, soit sous le minimum de 3:1 exigé pour un grand caractère.
+ */
+export function inkOn(hex: string): string {
+  const l = luminance(hex);
+  return contrast(l, luminance(INK_DARK)) >= contrast(l, luminance(INK_LIGHT))
+    ? INK_DARK
+    : INK_LIGHT;
+}

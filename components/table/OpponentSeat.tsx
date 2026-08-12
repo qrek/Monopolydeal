@@ -15,6 +15,7 @@ import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { SetPips } from '@/components/table/SetPips';
 import { Avatar } from '@/components/ui/Avatar';
 import { completeColors, type RedactedPlayer } from '@/lib/engine';
+import { playerColor } from '@/lib/ui/avatar';
 import { fitGroups } from '@/lib/ui/layout';
 
 export const OpponentSeat = memo(function OpponentSeat({
@@ -66,16 +67,19 @@ export const OpponentSeat = memo(function OpponentSeat({
           color={color}
           offline={!player.connected}
         />
-        <span
-          className={`min-w-0 truncate text-[0.72rem] font-extrabold leading-none ${
-            isCurrent ? 'text-mono-red' : 'text-ink'
-          }`}
-        >
+        <span className="min-w-0 truncate text-[0.72rem] font-extrabold leading-none text-ink">
           {player.name}
         </span>
-        {/* Le tour en cours se signale par un point, pas par un cadre. */}
+        {/* Le tour en cours se signale par un point, pas par un cadre — et ce
+            point est de SA couleur, la même que son avatar et que le bandeau
+            de passage de main. Un rouge unique pour tout le monde obligeait à
+            relire le pseudo pour savoir qui jouait. */}
         {isCurrent && (
-          <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-mono-red" />
+          <span
+            aria-hidden
+            className="size-2 shrink-0 rounded-full border border-ink/50"
+            style={{ background: playerColor(player.id, color) }}
+          />
         )}
 
         <span className="shrink-0 text-[0.72rem] font-bold leading-none text-ink-soft">

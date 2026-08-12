@@ -15,6 +15,7 @@ import { motion } from 'framer-motion';
 import { CardFace } from '@/components/cards/CardFace';
 import type { PlayController } from '@/components/play/usePlayController';
 import type { CardId } from '@/lib/engine';
+import { COUCHE } from '@/lib/ui/couches';
 import { DESTINATION_LABEL, destinationsFor, type Destination } from '@/lib/ui/legal';
 import { SPRING } from '@/lib/ui/motion';
 
@@ -94,8 +95,8 @@ export function DragLayer({ ctl, width }: { ctl: PlayController; width: number }
   if (!drag) return null;
   return (
     <motion.div
-      className="pointer-events-none fixed z-[70] shadow-drag will-change-transform"
-      style={{ left: drag.x, top: drag.y, x: '-50%', y: '-50%' }}
+      className="pointer-events-none fixed shadow-drag will-change-transform"
+      style={{ left: drag.x, top: drag.y, x: '-50%', y: '-50%', zIndex: COUCHE.narration }}
       animate={{ rotate: drag.over ? 0 : -5, scale: drag.over ? 1.1 : 1 }}
       transition={SPRING}
     >

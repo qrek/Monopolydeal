@@ -17,7 +17,7 @@ import {
   isPropertyLike,
   possibleColors,
 } from './cards.ts';
-import { shuffle } from './rng.ts';
+import { hashSeed, mulberry32, shuffle } from './rng.ts';
 import {
   EMPTY_HAND_DRAW,
   HAND_LIMIT,
@@ -477,6 +477,14 @@ function finishResponse(d: GameState, t: PendingTarget): void {
 // Handlers
 // ---------------------------------------------------------------------------
 
+/**
+ * Qui ouvre la partie. Dérivé du seed, comme le mélange : deux serveurs qui
+ * rejouent le même journal doivent tomber sur le même joueur.
+ */
+function pickStarter(count: number, seed: string): number {
+  return Math.floor(mulberry32(hashSeed(`start:${seed}`))() * count);
+}
+
 function handleStartGame(d: GameState): void {
   requirePhase(d, 'LOBBY');
   const rules = rulesFor(d.mode);
@@ -500,20 +508,26 @@ function handleStartGame(d: GameState): void {
       if (card !== undefined) p.hand.push(card);
     }
   }
+  // Qui commence est tiré au sort. C'était l'hôte, c'est-à-dire celui qui a
+  // créé la partie : à deux, commencer vaut plusieurs points de victoire, et
+  // personne n'a envie que ça se décide au moment de cliquer sur « Créer ».
+  // Le tirage vient du seed, donc il reste rejouable comme le mélange.
+  const start = pickStarter(d.players.length, d.seed);
   // Compensation du second joueur : celui qui ne commence pas entre en jeu
   // avec un peu plus en main. Sans cela, à deux, la place décide de la partie
-  // presque aussi souvent que le jeu.
-  const second = d.players[1];
+  // presque aussi souvent que le jeu. Elle suit le tirage — le compensé est
+  // celui qui joue APRÈS, pas le deuxième arrivé dans le salon.
+  const second = d.players[(start + 1) % d.players.length];
   if (second) {
     for (let i = 0; i < rules.secondPlayerBonus; i++) {
       const card = d.deck.shift();
       if (card !== undefined) second.hand.push(card);
     }
   }
-  d.turnIndex = 0;
+  d.turnIndex = start;
   d.actionsPlayed = 0;
   d.phase = 'DRAW';
-  const first = d.players[0] as PlayerState;
+  const first = d.players[start] as PlayerState;
   emit(d, { t: 'TURN_STARTED', playerId: first.id });
 }
 

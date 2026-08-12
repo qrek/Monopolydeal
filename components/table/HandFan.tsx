@@ -80,7 +80,9 @@ export function HandFan({
           <AnimatePresence initial={false}>
             {cards.map((id, i) => {
               const offset = count === 1 ? 0 : (i / (count - 1)) * 2 - 1;
-              const chosen = ctl.selected === id;
+              // Une fenêtre ouverte rend la main inerte : une carte restée
+              // sélectionnée dessous ne doit pas continuer à se relever.
+              const chosen = ctl.selected === id && playable;
               const usableCard = playable && destinationsFor(id).length > 0;
               return (
                 <motion.div
