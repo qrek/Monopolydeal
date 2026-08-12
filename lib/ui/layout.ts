@@ -53,10 +53,21 @@ export function fanSideBleed(cardWidth: number): number {
  * Le bas d'une carte ne porte rien qui l'identifie : la valeur est en haut à
  * gauche, le nom de rue sur le bandeau, le pictogramme au milieu. On laisse
  * donc le pied de l'éventail passer sous le bord, et l'appui long donne le
- * détail complet quand on en a besoin. Une trentaine de pixels rendus au reste
- * de la table, là où la hauteur est la ressource rare.
+ * détail complet quand on en a besoin.
+ *
+ * La valeur n'est pas au jugé : elle est calée sur la mesure du contenu réel.
+ * En fraction de la hauteur d'une carte, le dernier élément utile tombe à
+ * 0,70 pour une propriété (dernier palier de loyer, celui du lot complet),
+ * 0,63 pour une gare, 0,56 pour un loyer universel. On s'arrête donc juste
+ * sous 0,72 : c'est le plus bas qu'on puisse descendre en gardant le barème
+ * entier, c'est-à-dire le chiffre sur lequel on décide en regardant sa main.
+ *
+ * Ce qui passe sous le bord : le filigrane, le pied (« Lot rouge · 3
+ * propriétés »), la seconde couleur d'un joker bicolore — imprimée tête-bêche
+ * tout en bas — et la ligne d'effet des cartes action, qui sortait déjà du
+ * champ à 0,80. L'appui long reste la réponse pour ces quatre-là.
  */
-const HAND_VISIBLE = 0.8;
+const HAND_VISIBLE = 0.72;
 
 /** De combien l'éventail descend sous le bord bas. */
 export function handSink(cardWidth: number): number {
