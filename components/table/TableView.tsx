@@ -40,6 +40,7 @@ import { PropertyGroups } from '@/components/table/PropertyGroups';
 import { RotateHint } from '@/components/table/RotateHint';
 import { SetPips } from '@/components/table/SetPips';
 import { TableFeedback } from '@/components/table/TableFeedback';
+import { TransferLayer } from '@/components/table/TransferLayer';
 import { Button } from '@/components/ui/Button';
 import { useGameStore } from '@/lib/client/store';
 import {
@@ -228,6 +229,10 @@ export function TableView({ view }: { view: GameView }) {
         {/* Ce que la table dit à voix haute, pour qui ne la voit pas. */}
         <LiveRegion events={state.events} nameOf={nameOf} />
 
+        {/* Les cartes qui changent de mains, montrées en vol : sans ça, un vol
+            ou un paiement n'était qu'une ligne de journal. */}
+        <TransferLayer events={state.events} width={scale.mine} />
+
         {/* Bandeau ------------------------------------------------------- */}
         <header className="safe-px relative z-10 flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
           <Link href="/" aria-label="Quitter la partie" className="tap shrink-0">
@@ -318,6 +323,7 @@ export function TableView({ view }: { view: GameView }) {
               invisible ET intouchable, au glisser comme à la tape. */}
           <section
             ref={boardRef}
+            data-seat={view.viewerId}
             aria-label="Mon plateau"
             className={`flex min-h-0 flex-1 items-stretch gap-2 ${shaken ? 'animate-shake' : ''}`}
           >

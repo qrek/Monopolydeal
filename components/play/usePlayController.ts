@@ -17,6 +17,7 @@ import { LONG_PRESS_MS, useInspect } from '@/components/cards/CardInspector';
 import { api, RequestError } from '@/lib/client/api';
 import type { GameView } from '@/lib/server/games';
 import { getCard, type CardId, type GameAction } from '@/lib/engine';
+import { vibrer } from '@/lib/ui/haptique';
 import {
   destinationsFor,
   isBuilding,
@@ -170,6 +171,7 @@ export function usePlayController(
       } catch (e) {
         // Les erreurs de règle du moteur arrivent en clair : on les montre.
         setError(e instanceof RequestError ? e.message : 'Coup impossible');
+        vibrer('refus');
         return false;
       } finally {
         setBusy(false);
@@ -235,6 +237,7 @@ export function usePlayController(
             return;
           default:
             setError('Cette carte ne se joue pas ainsi');
+            vibrer('refus');
         }
       }
     },
