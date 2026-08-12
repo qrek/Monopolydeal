@@ -26,12 +26,24 @@ export interface GameSubscription {
   unsubscribe: () => void;
 }
 
-/** Filet de sécurité : assez lâche pour ne pas peser, assez court pour sauver un tour. */
+/**
+ * Filet de sécurité derrière le Broadcast : assez court pour sauver un tour,
+ * assez lâche pour ne pas peser. Il ne bat vite que quand il peut servir.
+ */
 const POLL_MS = 5000;
+/** Partie terminée : plus rien ne bougera, le rappel n'a plus d'objet. */
+const POLL_OFF = 0;
+
+/** Ce que le filet doit savoir de la partie pour régler son rythme. */
+export interface PollHint {
+  /** La partie est finie : on relit un résumé, pas une table vivante. */
+  over: boolean;
+}
 
 export function subscribeToGame(
   gameId: string,
   onChange: () => void,
+  hint?: () => PollHint,
 ): GameSubscription {
   const supabase = browserClient();
 
@@ -41,8 +53,10 @@ export function subscribeToGame(
     .subscribe();
 
   const poll = setInterval(() => {
-    // Inutile de recharger une table que personne ne regarde.
+    // Inutile de recharger une table que personne ne regarde…
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+    // …ni une partie qui ne bougera plus.
+    if (hint?.().over) return;
     onChange();
   }, POLL_MS);
 
