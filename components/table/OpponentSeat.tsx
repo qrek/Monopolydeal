@@ -41,6 +41,8 @@ export const OpponentSeat = memo(function OpponentSeat({
     // Toute la place de l'adversaire ouvre son plateau : en paysage il n'y a
     // pas de place pour un bouton dédié, et c'est là qu'on tape naturellement.
     <article
+      // Ancre du joueur : c'est d'ici que partent et arrivent les cartes en vol.
+      data-seat={player.id}
       role="button"
       tabIndex={0}
       onClick={onOpen}

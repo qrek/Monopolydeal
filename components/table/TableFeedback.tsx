@@ -20,6 +20,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CardFace } from '@/components/cards/CardFace';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { ACTIONS, type CardId, type GameEvent } from '@/lib/engine';
+import { vibrer } from '@/lib/ui/haptique';
 import { CUE_MS, EASE_OUT, FLOAT_MS, TURN_BANNER_MS } from '@/lib/ui/motion';
 
 /** Le coup à montrer au centre de la table. */
@@ -86,6 +87,21 @@ export function TableFeedback({
   // propos. On le lit donc par référence : seul un NOUVEL événement déclenche.
   const nameRef = useRef(nameOf);
   nameRef.current = nameOf;
+
+  // Le retour haptique se branche sur les mêmes événements que le reste : ce
+  // qui mérite une animation mérite une vibration, et rien d'autre.
+  useEffect(() => {
+    for (const e of fresh) {
+      if (e.t === 'TURN_STARTED' && e.playerId === viewerId) vibrer('tour');
+      else if (e.t === 'CARDS_STOLEN' && e.fromId === viewerId) vibrer('perte');
+      else if (e.t === 'PAID' && e.fromId === viewerId) vibrer('perte');
+      else if (e.t === 'PAID' && e.toId === viewerId) vibrer('gain');
+      else if (e.t === 'CARDS_SWAPPED' && (e.aId === viewerId || e.bId === viewerId)) {
+        vibrer('perte');
+      }
+    }
+  }, [fresh, viewerId]);
+
 
   useEffect(() => {
     if (fresh.length === 0 || reduced) return;
