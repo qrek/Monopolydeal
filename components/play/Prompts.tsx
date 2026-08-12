@@ -19,6 +19,7 @@ import { Modal } from '@/components/ui/Modal';
 import {
   COLORS,
   bankTotal,
+  bestRentForColor,
   getCard,
   possibleColors,
   type CardId,
@@ -485,14 +486,10 @@ function RentPrompt({
   // Le loyer coûte 1 action, chaque Double loyer une de plus.
   const cost = 1 + picked.length;
   const affordable = cost <= actionsLeft;
-  const base = color
-    ? Math.max(
-        0,
-        ...me.groups
-          .filter((g) => g.color === color)
-          .map((g) => COLORS[g.color].rents[Math.min(g.cards.length, COLORS[g.color].size) - 1] ?? 0),
-      )
-    : 0;
+  // Le montant vient du moteur, pas d'un calcul parallèle. Recopié ici, il
+  // oubliait Maison et Hôtel : la fenêtre annonçait 6 M là où l'adversaire en
+  // payait 13, et les constructions semblaient sans effet.
+  const base = color ? bestRentForColor(me, color) : 0;
   const amount = base * 2 ** picked.length;
 
   return (
