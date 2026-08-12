@@ -30,6 +30,7 @@ import {
   type RedactedState,
 } from '@/lib/engine';
 import { ApiError } from '@/lib/server/errors';
+import { PALETTE } from '@/lib/ui/avatar';
 import { adminClient } from '@/lib/supabase/admin';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,8 @@ export interface PlayerRow {
   seat: number;
   connected: boolean;
   joined_at: string;
+  /** Couleur choisie dans le salon, ou null : dérivée de l'identité. */
+  color: string | null;
 }
 
 interface PrivateRow {
@@ -462,6 +465,52 @@ function toApiError(e: unknown): never {
     throw new ApiError(422, e.code, e.message);
   }
   throw e;
+}
+
+/**
+ * Choisir sa couleur, tant que la partie n'a pas démarré.
+ *
+ * La palette est vérifiée ici ET par une contrainte en base : un client
+ * bricolé ne doit pas pouvoir peindre son avatar en blanc sur le tapis clair.
+ * Une couleur déjà prise est refusée — c'est tout l'intérêt d'en choisir une.
+ */
+export async function setPlayerColor(
+  code: string,
+  userId: string,
+  rawColor: unknown,
+): Promise<void> {
+  const color = typeof rawColor === 'string' ? rawColor : null;
+  if (color !== null && !(PALETTE as readonly string[]).includes(color)) {
+    throw new ApiError(400, 'BAD_COLOR', 'Couleur hors palette');
+  }
+  const game = await loadByCode(code);
+  if (game.status !== 'lobby') {
+    throw new ApiError(409, 'GAME_STARTED', 'La partie a déjà commencé');
+  }
+  const players = await loadPlayers(game.id);
+  if (!players.some((p) => p.user_id === userId)) {
+    throw new ApiError(403, 'NOT_A_PLAYER', "Vous n'êtes pas dans cette partie");
+  }
+  if (color && players.some((p) => p.user_id !== userId && p.color === color)) {
+    throw new ApiError(409, 'COLOR_TAKEN', 'Cette couleur est déjà prise');
+  }
+
+  const db = adminClient();
+  const { error } = await db
+    .from('game_players')
+    .update({ color })
+    .eq('game_id', game.id)
+    .eq('user_id', userId);
+  if (error) throw new ApiError(500, 'DB_ERROR', error.message);
+
+  // Le salon des autres joueurs doit refléter le choix tout de suite : c'est
+  // la version de la partie qui porte le signal Realtime.
+  await db
+    .from('games')
+    .update({ version: game.version + 1 })
+    .eq('id', game.id)
+    .eq('version', game.version);
+  notify(game.id, game.version + 1);
 }
 
 /** Démarre la partie : réservé à l'hôte, 2 à 5 joueurs présents. */

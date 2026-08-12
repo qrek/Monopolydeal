@@ -3,8 +3,12 @@
  * joueur. Aucune image externe, aucun appel réseau — juste du CSS.
  */
 
-/** Aplats francs, lisibles sur le fond sombre de la table. */
-const PALETTE = [
+/**
+ * Aplats francs, lisibles sur le fond sombre de la table. C'est aussi la
+ * palette proposée au choix dans le salon : une couleur qu'on choisit doit
+ * tenir aux mêmes tailles qu'une couleur attribuée.
+ */
+export const PALETTE = [
   '#E86FA9',
   '#F08A2B',
   '#DC3B34',
@@ -33,6 +37,13 @@ function hash(seed: string): number {
  */
 export function avatarColor(seed: string): string {
   return PALETTE[hash(seed) % PALETTE.length] ?? FALLBACK;
+}
+
+/** Une couleur choisie l'emporte sur la couleur dérivée. */
+export function playerColor(seed: string, chosen?: string | null): string {
+  return chosen && (PALETTE as readonly string[]).includes(chosen)
+    ? chosen
+    : avatarColor(seed);
 }
 
 /**

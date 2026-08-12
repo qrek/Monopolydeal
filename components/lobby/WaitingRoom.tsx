@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { api, RequestError } from '@/lib/client/api';
 import { useGameStore } from '@/lib/client/store';
 import { rulesFor } from '@/lib/engine';
+import { PALETTE, playerColor } from '@/lib/ui/avatar';
 import type { GameView } from '@/lib/server/games';
 
 function seatHint(count: number, min: number, max: number): string {
@@ -30,6 +31,8 @@ export function WaitingRoom({ view }: { view: GameView }) {
   const refresh = useGameStore((s) => s.refresh);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Couleur en cours d'envoi : le retour serveur peut mettre une seconde. */
+  const [pendingColor, setPendingColor] = useState<string | null>(null);
 
   const { game, players, viewerId } = view;
   const isHost = game.host_id === viewerId;
@@ -37,6 +40,27 @@ export function WaitingRoom({ view }: { view: GameView }) {
   const { minPlayers, maxPlayers } = rulesFor(game.mode);
   const canStart = players.length >= minPlayers && players.length <= maxPlayers;
   const host = players.find((p) => p.user_id === game.host_id);
+
+  const moi = players.find((p) => p.user_id === viewerId);
+  const prises = new Set(
+    players.filter((p) => p.user_id !== viewerId).map((p) => p.color),
+  );
+
+  const choisir = async (color: string) => {
+    if (prises.has(color)) return;
+    setPendingColor(color);
+    setError(null);
+    try {
+      // Reprendre sa propre couleur la retire : c'est le geste attendu quand
+      // on change d'avis sans vouloir en choisir une autre.
+      await api.setColor(game.code, moi?.color === color ? null : color);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof RequestError ? e.message : 'Couleur indisponible');
+    } finally {
+      setPendingColor(null);
+    }
+  };
 
   const start = async () => {
     setStarting(true);
@@ -95,7 +119,12 @@ export function WaitingRoom({ view }: { view: GameView }) {
               key={p.user_id}
               className="flex items-center gap-3 rounded-card bg-paper px-3 py-2.5"
             >
-              <Avatar name={p.name} seed={p.user_id} offline={!p.connected} />
+              <Avatar
+                name={p.name}
+                seed={p.user_id}
+                color={p.color}
+                offline={!p.connected}
+              />
               <span className="min-w-0 flex-1 truncate text-base font-bold tracking-tight">
                 {p.name}
                 {p.user_id === viewerId && (
@@ -126,6 +155,38 @@ export function WaitingRoom({ view }: { view: GameView }) {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* Choisir sa couleur : c'est elle qui identifie le joueur à la table,
+          où il n'y a pas la place d'écrire un pseudo en entier. */}
+      <section className="animate-fade-up">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-widest text-ink-soft">
+          Ma couleur
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {PALETTE.map((c) => {
+            const prise = prises.has(c);
+            const mienne = playerColor(viewerId, moi?.color) === c && Boolean(moi?.color);
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => void choisir(c)}
+                disabled={prise || pendingColor !== null}
+                aria-pressed={mienne}
+                aria-label={prise ? 'Couleur déjà prise' : 'Choisir cette couleur'}
+                className={`size-11 rounded-full border-2 transition-transform ${
+                  mienne
+                    ? 'border-ink shadow-card'
+                    : 'border-ink/25 hover:scale-105 disabled:hover:scale-100'
+                } ${prise ? 'cursor-not-allowed opacity-25' : ''}`}
+                style={{ backgroundColor: c }}
+              >
+                {mienne && <span className="text-lg font-extrabold text-table">✓</span>}
+              </button>
+            );
+          })}
+        </div>
       </section>
 
       <footer className="animate-fade-up space-y-3">
