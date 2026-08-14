@@ -105,10 +105,33 @@ export const ACTIONS: Record<ActionKind, ActionConfig> = {
   HOTEL: { qty: 2, value: 4, label: 'Hôtel', targeted: false },
   JUST_SAY_NO: { qty: 3, value: 4, label: 'Refus catégorique', targeted: false },
   DOUBLE_RENT: { qty: 2, value: 1, label: 'Double loyer', targeted: false },
+  REFLECT: { qty: 2, value: 3, label: 'Renvoi', targeted: false },
+  FINE: { qty: 2, value: 2, label: 'Contravention', targeted: true },
+  RATP_CHECK: { qty: 2, value: 3, label: 'Contrôle RATP', targeted: true },
+  TAIL: { qty: 1, value: 4, label: 'Filature', targeted: true },
 };
+
+/**
+ * Actions réservées aux modes étendus. Le tête-à-tête a besoin de coups qui se
+ * rendent — une partie à deux où l'on ne peut que subir se joue en apnée — mais
+ * ces quatre-là n'ont pas de sens à cinq : un renvoi ne sait pas qui viser, et
+ * un contrôle du meneur devient un vote à plusieurs.
+ */
+const EXTENDED_ACTIONS: ReadonlySet<ActionKind> = new Set([
+  'REFLECT',
+  'FINE',
+  'RATP_CHECK',
+  'TAIL',
+]);
 
 /** Montant réclamé par Recouvrement. */
 export const DEBT_COLLECTOR_AMOUNT = 5;
+/** Montant réclamé au meneur par un Contrôle RATP. */
+export const RATP_CHECK_AMOUNT = 5;
+/** Actions retirées au prochain tour de celui qui prend une Contravention. */
+export const FINE_PENALTY = 1;
+/** Un tour garde toujours au moins une action : sinon on le regarde passer. */
+export const MIN_ACTIONS_PER_TURN = 1;
 /** Montant réclamé par Anniversaire, à chaque adversaire. */
 export const BIRTHDAY_AMOUNT = 2;
 /** Cartes piochées par Passe départ. */
@@ -256,6 +279,7 @@ const CATALOGUE: readonly Card[] = Object.freeze(buildDeck());
 const EXTENDED: readonly Color[] = ['airport', 'metro'];
 
 function isExtended(card: Card): boolean {
+  if (card.kind === 'ACTION') return EXTENDED_ACTIONS.has(card.action);
   if (card.kind === 'PROPERTY') return EXTENDED.includes(card.color);
   if (card.kind === 'WILD') return card.colors.some((c) => EXTENDED.includes(c));
   // Le loyer universel couvre toutes les couleurs par définition : il reste

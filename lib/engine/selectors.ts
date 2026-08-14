@@ -68,7 +68,7 @@ export const RULES: Record<GameMode, RuleProfile> = {
     maxPlayers: 2,
     secondPlayerBonus: 2,
     label: 'Tête-à-tête',
-    tagline: '2 joueurs · métro et aéroports · second joueur compensé',
+    tagline: '2 joueurs · métro et aéroports · quatre cartes qui rendent les coups',
   },
 };
 
@@ -161,8 +161,29 @@ export function isBroke(player: PlayerState): boolean {
   return payableCards(player).length === 0;
 }
 
+/**
+ * Actions permises dans le tour courant. Une Contravention en retire ; les
+ * parties commencées avant qu'elle existe n'ont pas le champ et retombent sur
+ * le maximum.
+ */
+export function actionsAllowed(state: GameState): number {
+  return state.actionsAllowed ?? MAX_ACTIONS_PER_TURN;
+}
+
 export function actionsRemaining(state: GameState): number {
-  return Math.max(0, MAX_ACTIONS_PER_TURN - state.actionsPlayed);
+  return Math.max(0, actionsAllowed(state) - state.actionsPlayed);
+}
+
+/**
+ * Qui mène, entre deux joueurs : d'abord les lots complets, la banque
+ * départageant. C'est le classement que lit le Contrôle RATP — et le seul qui
+ * compte dans le jeu, puisqu'on gagne avec trois lots.
+ */
+export function leadsOver(a: PlayerState, b: PlayerState): boolean {
+  const setsA = completeColors(a).length;
+  const setsB = completeColors(b).length;
+  if (setsA !== setsB) return setsA > setsB;
+  return bankTotal(a) > bankTotal(b);
 }
 
 /** Meilleur loyer réclamable par ce joueur pour une couleur donnée. */

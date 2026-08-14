@@ -9,9 +9,12 @@ import {
   BIRTHDAY_AMOUNT,
   COLORS,
   DEBT_COLLECTOR_AMOUNT,
+  FINE_PENALTY,
   HOTEL_RENT_BONUS,
   HOUSE_RENT_BONUS,
+  MAX_ACTIONS_PER_TURN,
   PASS_GO_DRAW,
+  RATP_CHECK_AMOUNT,
   type ActionKind,
   type Color,
 } from '@/lib/engine';
@@ -63,6 +66,26 @@ export const ACTION_EFFECTS: Record<ActionKind, ActionEffect> = {
   },
   JUST_SAY_NO: { label: 'Tu annules', value: '1 action', note: 'Un autre Refus la rétablit' },
   DOUBLE_RENT: { label: 'Loyer réclamé', value: '×2', note: 'Coûte une action de plus' },
+  REFLECT: {
+    label: 'Tu renvoies',
+    value: 'la demande',
+    note: 'Une fois, et avant tout Refus',
+  },
+  FINE: {
+    label: 'Il jouera',
+    value: `${MAX_ACTIONS_PER_TURN - FINE_PENALTY} actions`,
+    note: 'À son prochain tour',
+  },
+  RATP_CHECK: {
+    label: 'Le meneur paie',
+    value: `${RATP_CHECK_AMOUNT} M`,
+    note: 'Injouable si tu mènes',
+  },
+  TAIL: {
+    label: 'Il défausse',
+    value: '1 carte',
+    note: 'La plus chère de sa main',
+  },
 };
 
 /**
@@ -95,6 +118,14 @@ export const ACTION_RULES: Record<ActionKind, string> = {
     'Annule une action jouée contre toi. Un autre Refus peut la rétablir.',
   DOUBLE_RENT:
     'Double le loyer que tu réclames. Compte pour une action de plus.',
+  REFLECT:
+    'Renvoie à son auteur une demande d’argent qui te vise — loyer, recouvrement, anniversaire, contrôle. Se joue avant tout Refus, et une seule fois par demande.',
+  FINE:
+    'L’adversaire ne jouera que 2 actions à son prochain tour au lieu de 3.',
+  RATP_CHECK:
+    'Celui qui mène te verse 5 M. Le classement se lit aux lots complets, la banque départageant. Injouable si c’est toi qui mènes.',
+  TAIL:
+    'L’adversaire défausse la carte la plus chère de sa main. Tu ne la prends pas : elle part à la défausse.',
 };
 
 /** Sous-titre d'une carte Loyer, selon qu'elle est bicolore ou universelle. */

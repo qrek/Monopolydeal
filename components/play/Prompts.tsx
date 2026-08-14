@@ -18,8 +18,10 @@ import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import {
   COLORS,
+  RATP_CHECK_AMOUNT,
   bankTotal,
   bestRentForColor,
+  completeColors,
   getCard,
   possibleColors,
   type CardId,
@@ -452,6 +454,66 @@ function DebtCollectorPrompt({
   );
 }
 
+/**
+ * Les trois actions du tête-à-tête ne demandent qu'une chose : qui. Elles
+ * partagent donc un même écran, avec la phrase qui change — c'est elle qui dit
+ * ce qu'on s'apprête à faire, et elle vaut mieux qu'un titre générique.
+ */
+function TargetPrompt({
+  prompt,
+  state,
+  me,
+  ctl,
+}: {
+  prompt: Extract<Prompt, { kind: 'FINE' | 'RATP_CHECK' | 'TAIL' }>;
+  state: RedactedState;
+  me: RedactedPlayer;
+  ctl: PlayController;
+}) {
+  const envoyer = (targetPlayerId: string) => {
+    ctl.closePrompt();
+    const base = { playerId: me.id, cardId: prompt.cardId, targetPlayerId };
+    if (prompt.kind === 'FINE') void ctl.send({ type: 'PLAY_FINE', ...base });
+    else if (prompt.kind === 'RATP_CHECK') {
+      void ctl.send({ type: 'PLAY_RATP_CHECK', ...base });
+    } else void ctl.send({ type: 'PLAY_TAIL', ...base });
+  };
+
+  const adversaires = opponentsOfView(state, me.id);
+  const mesLots = completeColors(me).length;
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {adversaires.map((p) => {
+        // On dit ce qui va se passer chez lui, et ce qui l'empêcherait : le
+        // moteur refusera de toute façon, autant le savoir avant de taper.
+        const sesLots = completeColors(p).length;
+        const mene =
+          sesLots > mesLots || (sesLots === mesLots && bankTotal(p) > bankTotal(me));
+        const bloque =
+          (prompt.kind === 'RATP_CHECK' && !mene) ||
+          (prompt.kind === 'TAIL' && p.handCount === 0);
+        const raison =
+          prompt.kind === 'RATP_CHECK'
+            ? bloque
+              ? 'ne mène pas'
+              : `mène — ${RATP_CHECK_AMOUNT} M`
+            : prompt.kind === 'TAIL'
+              ? bloque
+                ? 'main vide'
+                : `${p.handCount} cartes en main`
+              : `${p.handCount} cartes en main`;
+        return (
+          <Choice key={p.id} onClick={() => envoyer(p.id)} disabled={bloque}>
+            <PlayerLine player={p} />
+            <span className="text-ink-soft">{raison}</span>
+          </Choice>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Loyer : couleur réclamée, adversaire visé, Double loyer éventuel. */
 function RentPrompt({
   prompt,
@@ -587,6 +649,9 @@ const TITLES: Record<Prompt['kind'], string> = {
   SLY_DEAL: 'Quelle propriété ?',
   FORCED_DEAL: 'Quel échange ?',
   DEBT_COLLECTOR: 'Qui paie ?',
+  FINE: 'Qui écope ?',
+  RATP_CHECK: 'Qui contrôle-t-on ?',
+  TAIL: 'Qui file-t-on ?',
   RENT: 'Quel loyer ?',
 };
 
@@ -626,6 +691,11 @@ export function PromptModal({
       )}
       {prompt?.kind === 'DEBT_COLLECTOR' && (
         <DebtCollectorPrompt prompt={prompt} state={state} me={me} ctl={ctl} />
+      )}
+      {(prompt?.kind === 'FINE' ||
+        prompt?.kind === 'RATP_CHECK' ||
+        prompt?.kind === 'TAIL') && (
+        <TargetPrompt prompt={prompt} state={state} me={me} ctl={ctl} />
       )}
       {prompt?.kind === 'RENT' && (
         <RentPrompt

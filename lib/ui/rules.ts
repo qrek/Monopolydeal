@@ -77,15 +77,27 @@ export interface ActionRow {
   rule: string;
 }
 
-export const ACTION_TABLE: ActionRow[] = (
-  Object.keys(ACTIONS) as ActionKind[]
-).map((kind) => ({
-  kind,
-  label: ACTIONS[kind].label,
-  value: ACTIONS[kind].value,
-  qty: ACTIONS[kind].qty,
-  rule: ACTION_RULES[kind],
-}));
+/** Les quatre actions que seul le tête-à-tête distribue. */
+const DUEL_ONLY: ActionKind[] = ['REFLECT', 'FINE', 'RATP_CHECK', 'TAIL'];
+
+/**
+ * Le catalogue des actions, filtré par mode : inutile d'expliquer un Renvoi à
+ * une table de quatre, il n'y en a pas dans son deck.
+ */
+export function actionTable(mode: GameMode): ActionRow[] {
+  return (Object.keys(ACTIONS) as ActionKind[])
+    .filter((kind) => mode !== 'CLASSIC' || !DUEL_ONLY.includes(kind))
+    .map((kind) => ({
+      kind,
+      label: ACTIONS[kind].label,
+      value: ACTIONS[kind].value,
+      qty: ACTIONS[kind].qty,
+      rule: ACTION_RULES[kind],
+    }));
+}
+
+/** Le classique, pour les appelants qui n'ont pas de mode sous la main. */
+export const ACTION_TABLE: ActionRow[] = actionTable('CLASSIC');
 
 export function chaptersFor(mode: GameMode): RuleChapter[] {
   const table = rentTable(mode);
@@ -257,6 +269,25 @@ export function chaptersFor(mode: GameMode): RuleChapter[] {
       },
     ],
   },
+  ...(mode === 'DUEL'
+    ? [
+        {
+          id: 'tete-a-tete',
+          title: 'Le tête-à-tête',
+          lede:
+            'Quatre cartes n’existent que dans ce mode. À deux, une attaque qu’on ne peut que subir se joue en apnée : celles-ci rendent les coups, ou freinent celui qui prend le large.',
+          entries: [
+            {
+              term: 'Renvoi',
+              detail: `${ACTION_RULES.REFLECT} Il se joue à la place d’un Refus, pas après.`,
+            },
+            { term: 'Contravention', detail: ACTION_RULES.FINE },
+            { term: 'Contrôle RATP', detail: ACTION_RULES.RATP_CHECK },
+            { term: 'Filature', detail: ACTION_RULES.TAIL },
+          ],
+        },
+      ]
+    : []),
   {
     id: 'table',
     title: 'La table',

@@ -9,7 +9,10 @@ import {
   BIRTHDAY_AMOUNT,
   COLORS,
   DEBT_COLLECTOR_AMOUNT,
+  FINE_PENALTY,
+  MIN_ACTIONS_PER_TURN,
   PASS_GO_DRAW,
+  RATP_CHECK_AMOUNT,
   canBank,
   freshDeckIds,
   getCard,
@@ -24,9 +27,11 @@ import {
   MAX_ACTIONS_PER_TURN,
   STARTING_HAND,
   TURN_DRAW,
+  actionsAllowed,
   bestRentForColor,
   findWinner,
   groupHasRoom,
+  leadsOver,
   payableCards,
   rulesFor,
 } from './selectors.ts';
@@ -136,13 +141,26 @@ function takeFromHand(p: PlayerState, cardId: CardId): void {
 }
 
 function spendActions(d: GameState, count: number): void {
-  if (d.actionsPlayed + count > MAX_ACTIONS_PER_TURN) {
+  const permis = actionsAllowed(d);
+  if (d.actionsPlayed + count > permis) {
     throw new RuleError(
       'NO_ACTIONS_LEFT',
-      `Il faut ${count} action(s), il en reste ${MAX_ACTIONS_PER_TURN - d.actionsPlayed}`,
+      `Il faut ${count} action(s), il en reste ${permis - d.actionsPlayed}`,
     );
   }
   d.actionsPlayed += count;
+}
+
+/**
+ * Ouvre le tour d'un joueur : il purge la contravention qu'il a prise, s'il en
+ * a pris une. Le plafond ne descend jamais sous une action — un tour qu'on
+ * regarde passer n'est pas un tour.
+ */
+function openTurn(d: GameState, p: PlayerState): void {
+  const penalite = p.penalty ?? 0;
+  d.actionsAllowed = Math.max(MIN_ACTIONS_PER_TURN, MAX_ACTIONS_PER_TURN - penalite);
+  p.penalty = 0;
+  d.actionsPlayed = 0;
 }
 
 function newGroupId(d: GameState): string {
@@ -461,7 +479,48 @@ function resolveTarget(d: GameState, t: PendingTarget): void {
     case 'RENT':
       createDebt(d, t, pending.amount ?? 0);
       break;
+    case 'RATP_CHECK':
+      createDebt(d, t, RATP_CHECK_AMOUNT);
+      break;
+    case 'FINE': {
+      victim.penalty = (victim.penalty ?? 0) + FINE_PENALTY;
+      emit(d, {
+        t: 'FINED',
+        playerId: src.id,
+        targetId: victim.id,
+        actions: FINE_PENALTY,
+      });
+      t.status = 'DONE';
+      break;
+    }
+    case 'TAIL': {
+      // La plus chère de sa main, et rien d'autre : la Filature prive, elle
+      // n'enrichit pas. À deux, une carte volée compte double — une carte
+      // détruite ne compte qu'une fois, et c'est ce qui la rend jouable.
+      const proie = plusChere(victim.hand);
+      if (proie) {
+        takeFromHand(victim, proie);
+        d.discard.push(proie);
+        emit(d, { t: 'DISCARDED', playerId: victim.id, cardIds: [proie] });
+      }
+      t.status = 'DONE';
+      break;
+    }
   }
+}
+
+/** La carte de plus forte valeur bancaire ; à égalité, la première en main. */
+function plusChere(hand: CardId[]): CardId | null {
+  let best: CardId | null = null;
+  let bestValue = -1;
+  for (const id of hand) {
+    const v = getCard(id).value;
+    if (v > bestValue) {
+      bestValue = v;
+      best = id;
+    }
+  }
+  return best;
 }
 
 function finishResponse(d: GameState, t: PendingTarget): void {
@@ -525,9 +584,9 @@ function handleStartGame(d: GameState): void {
     }
   }
   d.turnIndex = start;
-  d.actionsPlayed = 0;
   d.phase = 'DRAW';
   const first = d.players[start] as PlayerState;
+  openTurn(d, first);
   emit(d, { t: 'TURN_STARTED', playerId: first.id });
 }
 
@@ -838,6 +897,79 @@ function handleDebtCollector(
   );
 }
 
+/**
+ * Contravention : une action de moins au prochain tour de la cible. Elle passe
+ * par la fenêtre de Refus comme toute action visant quelqu'un, et ne réclame
+ * rien — c'est du tempo, pas de l'argent.
+ */
+function handleFine(
+  d: GameState,
+  a: Extract<GameAction, { type: 'PLAY_FINE' }>,
+): void {
+  requirePhase(d, 'PLAY');
+  const p = requireTurn(d, a.playerId);
+  requireActionCard(p, a.cardId, 'FINE');
+  const victim = requireOpponent(d, a.playerId, a.targetPlayerId);
+  spendActions(d, 1);
+  beginPending(d, [a.cardId], {
+    kind: 'FINE',
+    sourcePlayerId: a.playerId,
+    targets: [makeTarget(victim.id)],
+  });
+}
+
+/**
+ * Contrôle RATP : celui qui mène paie. On refuse le coup à celui qui mène —
+ * c'est tout l'intérêt de la carte, elle dort en main tant qu'on est devant, et
+ * elle vaut son pesant de billets à celui qui court après.
+ */
+function handleRatpCheck(
+  d: GameState,
+  a: Extract<GameAction, { type: 'PLAY_RATP_CHECK' }>,
+): void {
+  requirePhase(d, 'PLAY');
+  const p = requireTurn(d, a.playerId);
+  requireActionCard(p, a.cardId, 'RATP_CHECK');
+  const victim = requireOpponent(d, a.playerId, a.targetPlayerId);
+  if (!leadsOver(victim, p)) {
+    throw new RuleError(
+      'ILLEGAL_TARGET',
+      'Le Contrôle ne vise que celui qui mène : lots complets, puis banque',
+    );
+  }
+  spendActions(d, 1);
+  beginPending(
+    d,
+    [a.cardId],
+    {
+      kind: 'RATP_CHECK',
+      sourcePlayerId: a.playerId,
+      targets: [makeTarget(victim.id)],
+    },
+    RATP_CHECK_AMOUNT,
+  );
+}
+
+/** Filature : la cible défausse sa carte la plus chère. */
+function handleTail(
+  d: GameState,
+  a: Extract<GameAction, { type: 'PLAY_TAIL' }>,
+): void {
+  requirePhase(d, 'PLAY');
+  const p = requireTurn(d, a.playerId);
+  requireActionCard(p, a.cardId, 'TAIL');
+  const victim = requireOpponent(d, a.playerId, a.targetPlayerId);
+  if (victim.hand.length === 0) {
+    throw new RuleError('ILLEGAL_TARGET', "Sa main est vide : il n'y a rien à filer");
+  }
+  spendActions(d, 1);
+  beginPending(d, [a.cardId], {
+    kind: 'TAIL',
+    sourcePlayerId: a.playerId,
+    targets: [makeTarget(victim.id)],
+  });
+}
+
 function handleBirthday(
   d: GameState,
   a: Extract<GameAction, { type: 'PLAY_BIRTHDAY' }>,
@@ -945,6 +1077,79 @@ function findRespondingTarget(
     throw new RuleError('NOT_A_RESPONDER', "Ce n'est pas à vous de répondre");
   }
   return t;
+}
+
+/** Les demandes qui se renvoient : celles qui réclament de l'argent. */
+const RENVOYABLES: ReadonlySet<PendingAction['kind']> = new Set([
+  'DEBT_COLLECTOR',
+  'BIRTHDAY',
+  'RENT',
+  'RATP_CHECK',
+]);
+
+/**
+ * Renvoi : la demande repart chez son auteur, au même montant.
+ *
+ * Il se joue à la place d'un Refus, et avant lui : une fois la chaîne de Refus
+ * entamée, la question posée n'est plus « qui paie » mais « qui a le dernier
+ * Refus », et intercaler un renvoi là-dedans ne se raconte plus. Un seul
+ * aller-retour par demande, sans quoi deux joueurs bien pourvus se la
+ * renverraient jusqu'à épuisement.
+ */
+function handleReflect(
+  d: GameState,
+  a: Extract<GameAction, { type: 'RESPOND_REFLECT' }>,
+): void {
+  requirePhase(d, 'RESOLVING_ACTION');
+  const pending = d.pending as PendingAction;
+  const t = findRespondingTarget(d, a.playerId, a.againstPlayerId);
+  if (!RENVOYABLES.has(pending.kind)) {
+    throw new RuleError('ILLEGAL_CARD', 'Un Renvoi ne renvoie que les demandes d’argent');
+  }
+  if (pending.reflected) {
+    throw new RuleError('ILLEGAL_CARD', 'Cette demande a déjà été renvoyée une fois');
+  }
+  if (a.playerId !== t.playerId) {
+    throw new RuleError('ILLEGAL_CARD', 'Seule la cible peut renvoyer');
+  }
+  // Garde-fou : avec une chaîne plafonnée à deux Refus, la cible ne reprend
+  // jamais la parole après en avoir joué un — la demande est déjà résolue. Le
+  // jour où le plafond bouge, la règle, elle, ne bouge pas.
+  if (t.jsnChain.length > 0) {
+    throw new RuleError('ILLEGAL_CARD', 'Trop tard : un Refus a déjà été joué');
+  }
+  const p = player(d, a.playerId);
+  requireActionCard(p, a.cardId, 'REFLECT');
+  takeFromHand(p, a.cardId);
+  d.discard.push(a.cardId);
+
+  const auteur = pending.sourcePlayerId;
+  const montant =
+    pending.kind === 'RENT'
+      ? (pending.amount ?? 0)
+      : pending.kind === 'BIRTHDAY'
+        ? BIRTHDAY_AMOUNT
+        : pending.kind === 'RATP_CHECK'
+          ? RATP_CHECK_AMOUNT
+          : DEBT_COLLECTOR_AMOUNT;
+
+  // La demande change de camp : l'ancienne cible en devient l'auteur, et
+  // l'auteur la cible. Le montant, lui, ne bouge pas.
+  d.pending = {
+    ...pending,
+    sourcePlayerId: a.playerId,
+    reflected: true,
+    amount: montant,
+    targets: [makeTarget(auteur)],
+  };
+  emit(d, {
+    t: 'REFLECTED',
+    playerId: a.playerId,
+    cardId: a.cardId,
+    againstId: auteur,
+    amount: montant,
+  });
+  settle(d);
 }
 
 function handleJustSayNo(
@@ -1094,10 +1299,10 @@ function handleDiscard(
 function handleAdvanceTurn(d: GameState): void {
   requirePhase(d, 'END_TURN');
   d.turnIndex = (d.turnIndex + 1) % d.players.length;
-  d.actionsPlayed = 0;
   d.pending = null;
   d.phase = 'DRAW';
   const next = d.players[d.turnIndex] as PlayerState;
+  openTurn(d, next);
   emit(d, { t: 'TURN_STARTED', playerId: next.id });
 }
 
@@ -1132,12 +1337,20 @@ function apply(d: GameState, a: GameAction): void {
       return handleForcedDeal(d, a);
     case 'PLAY_DEBT_COLLECTOR':
       return handleDebtCollector(d, a);
+    case 'PLAY_FINE':
+      return handleFine(d, a);
+    case 'PLAY_RATP_CHECK':
+      return handleRatpCheck(d, a);
+    case 'PLAY_TAIL':
+      return handleTail(d, a);
     case 'PLAY_BIRTHDAY':
       return handleBirthday(d, a);
     case 'PLAY_RENT':
       return handleRent(d, a);
     case 'RESPOND_JUST_SAY_NO':
       return handleJustSayNo(d, a);
+    case 'RESPOND_REFLECT':
+      return handleReflect(d, a);
     case 'RESPOND_ACCEPT':
       return handleAccept(d, a);
     case 'PAY':

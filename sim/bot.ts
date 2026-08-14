@@ -51,6 +51,12 @@ export interface Rules {
   firstTurnHandicap: boolean;
   /** Mode réellement passé au moteur : deck et compensation inclus. */
   mode: GameMode;
+  /**
+   * Retirer les quatre cartes du tête-à-tête avant de commencer. Sert à mesurer
+   * ce qu'elles changent, à graines égales : sans ce témoin, on ne saurait pas
+   * distinguer leur effet de celui du bot qui a appris à les jouer.
+   */
+  withoutExtras?: boolean;
 }
 
 export const BASE: Rules = {
@@ -85,6 +91,11 @@ export const DUEL_B0: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 0 };
 export const DUEL_B1: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 1 };
 export const DUEL_B2: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 2 };
 export const DUEL_B3: Rules = { ...BASE, mode: 'DUEL', secondPlayerBonus: 3 };
+
+/** Le duel tel qu'il était avant les quatre cartes, pour comparaison. */
+export const DUEL_SANS: Rules = { ...BASE, mode: 'DUEL', withoutExtras: true };
+/** Le duel tel qu'il est maintenant. */
+export const DUEL_AVEC: Rules = { ...BASE, mode: 'DUEL' };
 
 /** Le duel corrigé : on garde ce qui marche, on jette ce qui nuit. */
 export const DUEL_V2: Rules = {
@@ -268,6 +279,37 @@ function bestMove(s: GameState, me: string, rules: Rules): GameState | null {
     }
   }
 
+  // 4 bis. Les cartes du tête-à-tête, dans l'ordre où elles rapportent.
+  // La Filature d'abord : elle prive l'adversaire de sa meilleure carte, donc
+  // d'un Refus ou d'un Coup de filet, avant qu'il ne s'en serve.
+  const tail = hand.find((id) => getCard(id).label === 'Filature');
+  if (tail && foe.hand.length > 0) {
+    const done = tryAll(s, [
+      { type: 'PLAY_TAIL', playerId: me, cardId: tail, targetPlayerId: foe.id },
+    ]);
+    if (done) return done;
+  }
+
+  // Le Contrôle ne passe que si l'autre mène : le moteur refuse le reste, on
+  // tente et on continue.
+  const ratp = hand.find((id) => getCard(id).label === 'Contrôle RATP');
+  if (ratp && bankTotal(foe) >= 2) {
+    const done = tryAll(s, [
+      { type: 'PLAY_RATP_CHECK', playerId: me, cardId: ratp, targetPlayerId: foe.id },
+    ]);
+    if (done) return done;
+  }
+
+  // La Contravention est du tempo : elle vaut surtout quand l'adversaire a de
+  // quoi faire, c'est-à-dire une main garnie.
+  const fine = hand.find((id) => getCard(id).label === 'Contravention');
+  if (fine && foe.hand.length >= 4) {
+    const done = tryAll(s, [
+      { type: 'PLAY_FINE', playerId: me, cardId: fine, targetPlayerId: foe.id },
+    ]);
+    if (done) return done;
+  }
+
   // 5. Passe départ : de la matière première.
   const passGo = hand.find((id) => getCard(id).label === 'Passe départ');
   if (passGo) {
@@ -314,7 +356,7 @@ function bestMove(s: GameState, me: string, rules: Rules): GameState | null {
   // 9. Mettre en banque la plus grosse carte dont on n'a rien à faire.
   const bankable = hand
     .filter((id) => canBank(id) && !isPropertyLike(id))
-    .filter((id) => !['Refus catégorique'].includes(getCard(id).label))
+    .filter((id) => !['Refus catégorique', 'Renvoi'].includes(getCard(id).label))
     .sort((a, b) => getCard(b).value - getCard(a).value);
   for (const id of bankable) {
     const done = tryAll(s, [{ type: 'PLAY_MONEY', playerId: me, cardId: id }]);
@@ -359,6 +401,12 @@ export interface Outcome {
   leadChanges: number;
   /** Cartes action mises en banque faute de mieux : le deck qui s'éteint. */
   bankedActions: number;
+  /**
+   * Cartes du tête-à-tête effectivement jouées. Sans ce compteur, une mesure
+   * « équilibrée » ne prouve rien : elle peut simplement signifier que le bot
+   * n'a jamais su s'en servir.
+   */
+  duelCards: number;
 }
 
 const MAX_TURNS = 400;
@@ -377,6 +425,30 @@ export function playGame(seed: string, rules: Rules): Outcome {
     { type: 'START_GAME' },
   );
 
+  // Témoin : on retire les quatre cartes du tête-à-tête, main comprise, et on
+  // recomplète depuis la pioche pour que chacun garde le même nombre de cartes.
+  if (rules.withoutExtras) {
+    const d = structuredClone(s) as GameState;
+    const extra = (id: CardId): boolean => {
+      const c = getCard(id);
+      return (
+        c.kind === 'ACTION' &&
+        ['REFLECT', 'FINE', 'RATP_CHECK', 'TAIL'].includes(c.action)
+      );
+    };
+    d.deck = d.deck.filter((id) => !extra(id));
+    for (const p of d.players) {
+      const garde = p.hand.filter((id) => !extra(id));
+      const manque = p.hand.length - garde.length;
+      for (let i = 0; i < manque; i++) {
+        const card = d.deck.shift();
+        if (card) garde.push(card);
+      }
+      p.hand = garde;
+    }
+    s = d;
+  }
+
   // Compensation du second joueur : il entre en jeu avec une main plus large.
   if (rules.secondPlayerBonus > 0) {
     const d = structuredClone(s) as GameState;
@@ -388,18 +460,34 @@ export function playGame(seed: string, rules: Rules): Outcome {
     s = d;
   }
 
+  /** Dernier événement lu : le journal ne se relit pas en entier à chaque tour. */
+  let lastSeq = -1;
   let turns = 0;
   let discarded = 0;
   let jsn = 0;
   let leadChanges = 0;
   let leader: string | null = null;
   let bankedActions = 0;
+  let duelCards = 0;
   const dealBreakerBy = new Set<string>();
 
   /** Vol en cours, pour rendre une carte dès qu'il aboutit. */
   let vol: { thief: string; victim: string; cards: CardId[] } | null = null;
 
   while (!s.winnerId && turns < MAX_TURNS) {
+    // Compte les cartes du tête-à-tête au fil du journal.
+    for (const e of s.events) {
+      if (e.seq <= lastSeq) continue;
+      lastSeq = e.seq;
+      if (e.t === 'REFLECTED' || e.t === 'FINED') duelCards++;
+      else if (
+        e.t === 'ACTION_PLAYED' &&
+        (e.kind === 'RATP_CHECK' || e.kind === 'TAIL')
+      ) {
+        duelCards++;
+      }
+    }
+
     if (rules.softDealBreaker) {
       if (s.pending?.kind === 'DEAL_BREAKER') {
         const t = s.pending.targets[0]!;
@@ -427,6 +515,27 @@ export function playGame(seed: string, rules: Rules): Outcome {
       if (!t) break;
       const who = s.players.find((x) => x.id === (t.responderId ?? t.playerId))!;
       if (t.status === 'AWAITING_RESPONSE') {
+        // Renvoi d'abord : il coûte une carte comme le Refus, mais il fait
+        // payer l'autre au lieu de simplement ne pas payer.
+        const renvoi = who.hand.find((id) => getCard(id).label === 'Renvoi');
+        const demande = ['DEBT_COLLECTOR', 'BIRTHDAY', 'RENT', 'RATP_CHECK'].includes(
+          s.pending?.kind ?? '',
+        );
+        if (
+          renvoi &&
+          demande &&
+          who.id === t.playerId &&
+          t.jsnChain.length === 0 &&
+          !s.pending?.reflected
+        ) {
+          const tente = tryAll(s, [
+            { type: 'RESPOND_REFLECT', playerId: who.id, cardId: renvoi },
+          ]);
+          if (tente) {
+            s = tente;
+            continue;
+          }
+        }
         const card = who.hand.find((id) => getCard(id).label === 'Refus catégorique');
         const grave = s.pending?.kind === 'DEAL_BREAKER' || (s.pending?.amount ?? 0) >= 4;
         const allowed = !rules.oneJsnPerTurn || t.jsnChain.length === 0;
@@ -462,10 +571,11 @@ export function playGame(seed: string, rules: Rules): Outcome {
       const before = s.actionsPlayed;
       // Le premier joueur ouvre avec une carte de moins : c'est le tour qui
       // porte tout son avantage.
+      const permis = s.actionsAllowed ?? MAX_ACTIONS_PER_TURN;
       const plafond =
         rules.firstTurnHandicap && turns === 0 && cur.id === 'A'
-          ? MAX_ACTIONS_PER_TURN - 1
-          : MAX_ACTIONS_PER_TURN;
+          ? permis - 1
+          : permis;
       const next = s.actionsPlayed < plafond ? bestMove(s, cur.id, rules) : null;
       // Qui mène ? Un changement de tête, c'est une partie qui se dispute.
       {
@@ -506,6 +616,7 @@ export function playGame(seed: string, rules: Rules): Outcome {
     jsn,
     leadChanges,
     bankedActions,
+    duelCards,
   };
 }
 

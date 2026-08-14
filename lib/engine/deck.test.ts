@@ -18,6 +18,9 @@ function ofKind(kind: CardKind): Card[] {
   return DECK_COMPOSITION.filter((c) => c.kind === kind);
 }
 
+/** Les quatre actions que seul le tête-à-tête distribue. */
+const DUEL_ONLY: ActionKind[] = ['REFLECT', 'FINE', 'RATP_CHECK', 'TAIL'];
+
 describe('Composition du deck', () => {
   it('contient 106 cartes (20 + 28 + 11 + 34 + 13)', () => {
     expect(DECK_COMPOSITION.length).toBe(106);
@@ -58,14 +61,30 @@ describe('Composition du deck', () => {
   });
 
   it('a 34 cartes Action aux quantités annoncées', () => {
+    // Le deck classique ne distribue pas les actions réservées au tête-à-tête :
+    // leur quantité y est donc nulle, et pleine dans le catalogue.
     const actions = ofKind('ACTION');
     expect(actions).toHaveLength(34);
     for (const kind of Object.keys(ACTIONS) as ActionKind[]) {
       const n = actions.filter(
         (c) => c.kind === 'ACTION' && c.action === kind,
       ).length;
-      expect(n).toBe(ACTIONS[kind].qty);
+      expect(n, kind).toBe(DUEL_ONLY.includes(kind) ? 0 : ACTIONS[kind].qty);
     }
+  });
+
+  it('réserve quatre actions au tête-à-tête', () => {
+    const compte = (ids: readonly string[], kind: ActionKind): number =>
+      ids.map(getCard).filter((c) => c.kind === 'ACTION' && c.action === kind).length;
+    const classique = freshDeckIds('CLASSIC');
+    const duel = freshDeckIds('DUEL');
+    for (const kind of DUEL_ONLY) {
+      expect(compte(classique, kind), kind).toBe(0);
+      expect(compte(duel, kind), kind).toBe(ACTIONS[kind].qty);
+    }
+    // Sept cartes de plus, et pas une de moins ailleurs.
+    const ajout = DUEL_ONLY.reduce((n, k) => n + ACTIONS[k].qty, 0);
+    expect(duel.length - classique.length).toBeGreaterThanOrEqual(ajout);
   });
 
   it('a 13 cartes Loyer dont 3 universelles', () => {

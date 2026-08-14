@@ -132,6 +132,53 @@ const GLYPHS: Record<ActionKind, React.ReactNode> = {
       />
     </>
   ),
+  // Renvoi : la flèche qui part revient d'où elle vient, en rouge — c'est
+  // l'autre qui paie. Deux courbes tête-bêche, comme un demi-tour.
+  REFLECT: (
+    <>
+      <path
+        d="M4 8.5h9.5a4.5 4.5 0 0 1 0 9H11"
+        stroke={INK}
+        strokeWidth="2.6"
+        fill="none"
+        strokeLinecap="round"
+      />
+      <path d="M13.4 13.4 8.6 17.5l4.8 4.1v-8.2Z" fill={RED} />
+      <path d="M6.6 4.4 11.4 8.5 6.6 12.6V4.4Z" fill={INK} />
+    </>
+  ),
+  // Contravention : le carnet à souche et son coup de tampon.
+  FINE: (
+    <>
+      <rect x="4" y="2.5" width="14" height="17" rx="1.4" fill={INK} />
+      <rect x="6" y="5" width="10" height="1.8" fill={CREAM} />
+      <rect x="6" y="8.4" width="10" height="1.8" fill={CREAM} />
+      <rect x="6" y="11.8" width="6.5" height="1.8" fill={CREAM} />
+      <circle cx="16.5" cy="16.5" r="5.5" fill={RED} />
+      <rect x="13.4" y="15.4" width="6.2" height="2.2" rx="1.1" fill={CREAM} />
+    </>
+  ),
+  // Contrôle RATP : le portillon et son bras qui se referme.
+  RATP_CHECK: (
+    <>
+      <rect x="2" y="6" width="4.5" height="14" rx="1" fill={INK} />
+      <rect x="17.5" y="6" width="4.5" height="14" rx="1" fill={INK} />
+      <rect x="6" y="9.5" width="12.5" height="2.8" rx="1.4" fill={RED} />
+      <circle cx="4.25" cy="9.2" r="1.4" fill={GREEN} />
+      <circle cx="19.75" cy="9.2" r="1.4" fill={CREAM} />
+    </>
+  ),
+  // Filature : l'œil qui suit, et le pas de côté.
+  TAIL: (
+    <>
+      <path
+        d="M12 5.5c5.2 0 9 3.9 10.4 6.5C21 14.6 17.2 18.5 12 18.5S3 14.6 1.6 12C3 9.4 6.8 5.5 12 5.5Z"
+        fill={INK}
+      />
+      <circle cx="12" cy="12" r="3.6" fill={CREAM} />
+      <circle cx="12" cy="12" r="1.9" fill={RED} />
+    </>
+  ),
 };
 
 export function ActionGlyph({
