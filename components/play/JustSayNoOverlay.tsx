@@ -19,12 +19,13 @@ import { Modal } from '@/components/ui/Modal';
 import { api } from '@/lib/client/api';
 import {
   JUST_SAY_NO_WINDOW_MS,
+  type CardId,
   type PendingAction,
   type PendingTarget,
   type RedactedPlayer,
   type RedactedState,
 } from '@/lib/engine';
-import { handHasJustSayNo } from '@/lib/ui/legal';
+import { handHasJustSayNo, handHasReflect, isReflectable } from '@/lib/ui/legal';
 
 const KIND_LABEL: Record<PendingAction['kind'], string> = {
   DEAL_BREAKER: 'Coup de filet',
@@ -33,6 +34,9 @@ const KIND_LABEL: Record<PendingAction['kind'], string> = {
   DEBT_COLLECTOR: 'Recouvrement',
   BIRTHDAY: 'Anniversaire',
   RENT: 'Loyer',
+  FINE: 'Contravention',
+  RATP_CHECK: 'Contrôle RATP',
+  TAIL: 'Filature',
 };
 
 /** Millisecondes restantes, d'après l'horodatage serveur du dernier coup. */
@@ -107,6 +111,13 @@ export function JustSayNoOverlay({
   const jsn = handHasJustSayNo(me);
   // Refuser un Refus, c'est rétablir son action : le mot change de sens.
   const counter = target.jsnChain.length > 0;
+  // Le Renvoi ne s'offre qu'à la cible d'une demande d'argent, avant tout
+  // Refus : passé ce point, la question n'est plus qui paie mais qui a le
+  // dernier mot.
+  const renvoi =
+    !counter && target.playerId === me.id && isReflectable(state)
+      ? handHasReflect(me)
+      : null;
 
   /**
    * Sans Refus en main, il n'y a rien à décider : la fenêtre n'offrait qu'un
@@ -116,7 +127,7 @@ export function JustSayNoOverlay({
    */
   const accepte = useRef<string | null>(null);
   useEffect(() => {
-    if (jsn) return;
+    if (jsn || renvoi) return;
     const cle = `${target.playerId}:${target.jsnChain.length}`;
     if (accepte.current === cle) return;
     accepte.current = cle;
@@ -125,9 +136,9 @@ export function JustSayNoOverlay({
       playerId: me.id,
       againstPlayerId: target.playerId,
     });
-  }, [jsn, target.playerId, target.jsnChain.length, ctl, me.id]);
+  }, [jsn, renvoi, target.playerId, target.jsnChain.length, ctl, me.id]);
 
-  if (!jsn) return null;
+  if (!jsn && !renvoi) return null;
 
   return (
     <Modal
@@ -157,19 +168,37 @@ export function JustSayNoOverlay({
             </span>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              loading={ctl.busy}
-              onClick={() => {
-                void ctl.send({
-                  type: 'RESPOND_JUST_SAY_NO',
-                  playerId: me.id,
-                  cardId: jsn,
-                  againstPlayerId: target.playerId,
-                });
-              }}
-            >
-              {counter ? 'Rétablir mon action' : 'Refuser'}
-            </Button>
+            {renvoi && (
+              <Button
+                loading={ctl.busy}
+                onClick={() => {
+                  void ctl.send({
+                    type: 'RESPOND_REFLECT',
+                    playerId: me.id,
+                    cardId: renvoi,
+                    againstPlayerId: target.playerId,
+                  });
+                }}
+              >
+                Renvoyer
+              </Button>
+            )}
+            {jsn && (
+              <Button
+                variant={renvoi ? 'secondary' : 'primary'}
+                loading={ctl.busy}
+                onClick={() => {
+                  void ctl.send({
+                    type: 'RESPOND_JUST_SAY_NO',
+                    playerId: me.id,
+                    cardId: jsn,
+                    againstPlayerId: target.playerId,
+                  });
+                }}
+              >
+                {counter ? 'Rétablir mon action' : 'Refuser'}
+              </Button>
+            )}
             <Button
               variant="secondary"
               loading={ctl.busy}
@@ -192,12 +221,14 @@ export function JustSayNoOverlay({
 
       <div className="mt-3 flex items-center gap-3">
         <div className="shrink-0">
-          <CardFace cardId={jsn} width={56} />
+          <CardFace cardId={(renvoi ?? jsn) as CardId} width={56} />
         </div>
         <p className="text-sm font-semibold">
-          {counter
-            ? 'Joue ce Refus pour rétablir ton action. Sans réponse, elle reste annulée.'
-            : 'Joue ce Refus pour annuler l’action. Sans réponse, elle passe : le silence vaut acceptation.'}
+          {renvoi
+            ? 'Renvoie la demande à son auteur : c’est lui qui paiera, au même montant. Il pourra encore la refuser.'
+            : counter
+              ? 'Joue ce Refus pour rétablir ton action. Sans réponse, elle reste annulée.'
+              : 'Joue ce Refus pour annuler l’action. Sans réponse, elle passe : le silence vaut acceptation.'}
         </p>
       </div>
     </Modal>

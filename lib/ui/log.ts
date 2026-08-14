@@ -100,6 +100,16 @@ export function describeEvent(
         `${nameOf(e.playerId)} oppose un Refus catégorique à ${nameOf(e.againstId)} !`,
         'strong',
       );
+    case 'REFLECTED':
+      return line(
+        `${nameOf(e.playerId)} renvoie la demande de ${e.amount}M à ${nameOf(e.againstId)} !`,
+        'strong',
+      );
+    case 'FINED':
+      return line(
+        `${nameOf(e.targetId)} écope d’une Contravention : ${e.actions} action de moins au prochain tour.`,
+        'loss',
+      );
     case 'ACTION_CANCELLED':
       return line(`L’action contre ${nameOf(e.targetId)} est annulée.`, 'gain');
     case 'DEBT_CREATED':

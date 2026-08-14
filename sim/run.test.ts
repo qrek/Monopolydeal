@@ -10,7 +10,9 @@ import {
   DUEL_B0,
   DUEL_B1,
   DUEL_B2,
+  DUEL_AVEC,
   DUEL_B3,
+  DUEL_SANS,
   DUEL,
   DUEL_MOTEUR,
   DUEL_V2,
@@ -26,6 +28,12 @@ import {
 } from './bot.ts';
 
 const N = Number(process.env.SIM_N ?? 400);
+/**
+ * Ne mesurer que certaines variantes : `SIM_ONLY=duel` ne garde que celles dont
+ * le nom contient « duel ». Un balayage complet coûte dix-sept fois le prix
+ * d'une ligne, et on veut souvent n'en comparer que deux.
+ */
+const FILTRE = process.env.SIM_ONLY?.toLowerCase();
 
 function med(xs: number[]): number {
   const s = [...xs].sort((a, b) => a - b);
@@ -40,6 +48,7 @@ function marge(p: number, n: number): number {
 }
 
 function bench(nom: string, rules: Rules) {
+  if (FILTRE && !nom.toLowerCase().includes(FILTRE)) return { premier: 0.5, n: 1 };
   const outs = Array.from({ length: N }, (_, i) => playGame(`sim-${i}`, rules));
   const f = outs.filter((o) => o.winnerId);
   const premier = f.filter((o) => o.winnerId === 'A').length / f.length;
@@ -52,6 +61,7 @@ function bench(nom: string, rules: Rules) {
     `serrées ${((f.filter((o) => o.loserSets >= 2).length / f.length) * 100).toFixed(0)}%`,
     `chgts de tête ${moy(f.map((o) => o.leadChanges)).toFixed(2)}`,
     `actions en banque ${moy(f.map((o) => o.bankedActions)).toFixed(1)}`,
+    `cartes duel jouées ${moy(f.map((o) => o.duelCards)).toFixed(2)}`,
   ];
   console.log(row.join(' | '));
   return { premier, n: f.length };
@@ -81,6 +91,9 @@ describe('Banc duel', () => {
       bench('duel +1', DUEL_B1),
       bench('duel +2', DUEL_B2),
       bench('duel +3', DUEL_B3),
+      // Les quatre cartes du tête-à-tête : le même deck, à elles près.
+      bench('duel SANS', DUEL_SANS),
+      bench('duel AVEC', DUEL_AVEC),
     ];
     expect(r.every((x) => x.n > 0)).toBe(true);
   }, 900_000);

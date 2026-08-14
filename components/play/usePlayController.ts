@@ -32,6 +32,9 @@ export type Prompt =
   | { kind: 'SLY_DEAL'; cardId: CardId }
   | { kind: 'FORCED_DEAL'; cardId: CardId }
   | { kind: 'DEBT_COLLECTOR'; cardId: CardId }
+  | { kind: 'FINE'; cardId: CardId }
+  | { kind: 'RATP_CHECK'; cardId: CardId }
+  | { kind: 'TAIL'; cardId: CardId }
   | { kind: 'RENT'; cardId: CardId };
 
 export interface DragState {
@@ -62,6 +65,9 @@ function destinationOf(action: GameAction): Destination | null {
     case 'PLAY_DEAL_BREAKER':
     case 'PLAY_SLY_DEAL':
     case 'PLAY_FORCED_DEAL':
+    case 'PLAY_FINE':
+    case 'PLAY_RATP_CHECK':
+    case 'PLAY_TAIL':
     case 'PLAY_DEBT_COLLECTOR':
     case 'PLAY_BIRTHDAY':
     case 'PLAY_RENT':
@@ -234,6 +240,15 @@ export function usePlayController(
             return;
           case 'DEBT_COLLECTOR':
             setPrompt({ kind: 'DEBT_COLLECTOR', cardId });
+            return;
+          case 'FINE':
+            setPrompt({ kind: 'FINE', cardId });
+            return;
+          case 'RATP_CHECK':
+            setPrompt({ kind: 'RATP_CHECK', cardId });
+            return;
+          case 'TAIL':
+            setPrompt({ kind: 'TAIL', cardId });
             return;
           default:
             setError('Cette carte ne se joue pas ainsi');

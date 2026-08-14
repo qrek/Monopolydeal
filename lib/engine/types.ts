@@ -53,7 +53,13 @@ export type ActionKind =
   | 'HOUSE' // Maison
   | 'HOTEL' // Hôtel
   | 'JUST_SAY_NO' // Refus catégorique
-  | 'DOUBLE_RENT'; // Double loyer
+  | 'DOUBLE_RENT' // Double loyer
+  // Réservées aux modes étendus : le tête-à-tête a besoin de coups qui se
+  // rendent, sans quoi une attaque ne se subit que d'une seule façon.
+  | 'REFLECT' // Renvoi
+  | 'FINE' // Contravention
+  | 'RATP_CHECK' // Contrôle RATP
+  | 'TAIL'; // Filature
 
 interface CardBase {
   id: CardId;
@@ -128,6 +134,11 @@ export interface PlayerState {
   hand: CardId[];
   bank: CardId[];
   groups: PropertyGroup[];
+  /**
+   * Contraventions à purger : autant d'actions en moins au prochain tour de ce
+   * joueur, puis remise à zéro. Absent sur les parties commencées avant.
+   */
+  penalty?: number;
 }
 
 export type Phase =
@@ -146,7 +157,10 @@ export type PendingKind =
   | 'FORCED_DEAL'
   | 'DEBT_COLLECTOR'
   | 'BIRTHDAY'
-  | 'RENT';
+  | 'RENT'
+  | 'FINE'
+  | 'RATP_CHECK'
+  | 'TAIL';
 
 export type TargetStatus =
   | 'AWAITING_RESPONSE'
@@ -188,6 +202,12 @@ export interface PendingAction {
   color?: Color;
   /** Loyer : montant unitaire calculé au moment où la carte est jouée. */
   amount?: number;
+  /**
+   * Renvoi déjà joué sur cette demande. Un seul aller-retour : sans ce
+   * drapeau, deux joueurs bien pourvus se renverraient la même dette jusqu'à
+   * épuisement des cartes, ce qui n'amuse personne.
+   */
+  reflected?: boolean;
 }
 
 export interface GameState {
@@ -198,8 +218,14 @@ export interface GameState {
   players: PlayerState[];
   /** Index dans `players` du joueur dont c'est le tour. */
   turnIndex: number;
-  /** Nombre d'actions consommées dans le tour courant (max 3). */
+  /** Nombre d'actions consommées dans le tour courant. */
   actionsPlayed: number;
+  /**
+   * Actions permises dans le tour courant. Vaut MAX_ACTIONS_PER_TURN sauf
+   * contravention en cours. Absent sur les parties commencées avant : les
+   * lecteurs retombent alors sur le maximum.
+   */
+  actionsAllowed?: number;
   /** Pioche, face cachée. Le sommet est l'index 0. */
   deck: CardId[];
   discard: CardId[];
@@ -272,6 +298,27 @@ export type GameAction =
     }
   | { type: 'PLAY_BIRTHDAY'; playerId: string; cardId: CardId }
   | {
+      /** Contravention : une action de moins au prochain tour de la cible. */
+      type: 'PLAY_FINE';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+    }
+  | {
+      /** Contrôle RATP : celui qui mène paie. Illégal si c'est moi qui mène. */
+      type: 'PLAY_RATP_CHECK';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+    }
+  | {
+      /** Filature : la cible défausse sa carte la plus chère. */
+      type: 'PLAY_TAIL';
+      playerId: string;
+      cardId: CardId;
+      targetPlayerId: string;
+    }
+  | {
       type: 'PLAY_RENT';
       playerId: string;
       cardId: CardId;
@@ -290,6 +337,16 @@ export type GameAction =
       playerId: string;
       cardId: CardId;
       /** Désambiguïse quand plusieurs cibles attendent ma réponse (Anniversaire). */
+      againstPlayerId?: string;
+    }
+  | {
+      /**
+       * Renvoi : la demande d'argent repart chez son auteur, même montant.
+       * Se joue à la place d'un Refus, et une seule fois par demande.
+       */
+      type: 'RESPOND_REFLECT';
+      playerId: string;
+      cardId: CardId;
       againstPlayerId?: string;
     }
   | { type: 'RESPOND_ACCEPT'; playerId: string; againstPlayerId?: string }
@@ -359,6 +416,15 @@ export type GameEvent =
       againstId: string;
     }
   | { seq: number; t: 'ACTION_CANCELLED'; targetId: string }
+  | {
+      seq: number;
+      t: 'REFLECTED';
+      playerId: string;
+      cardId: CardId;
+      againstId: string;
+      amount: number;
+    }
+  | { seq: number; t: 'FINED'; playerId: string; targetId: string; actions: number }
   | {
       seq: number;
       t: 'DEBT_CREATED';

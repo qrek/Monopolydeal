@@ -43,6 +43,29 @@ export function isDoubleRent(cardId: CardId): boolean {
   return card.kind === 'ACTION' && card.action === 'DOUBLE_RENT';
 }
 
+/** Le Renvoi, comme le Refus, ne se joue qu'en réponse à une demande. */
+export function isReflect(cardId: CardId): boolean {
+  const card = getCard(cardId);
+  return card.kind === 'ACTION' && card.action === 'REFLECT';
+}
+
+/** Ai-je de quoi renvoyer la demande en cours ? */
+export function handHasReflect(player: RedactedPlayer): CardId | null {
+  return player.hand.find(isReflect) ?? null;
+}
+
+/** Les demandes d'argent, seules à pouvoir repartir chez leur auteur. */
+export function isReflectable(state: RedactedState): boolean {
+  const kind = state.pending?.kind;
+  return (
+    !state.pending?.reflected &&
+    (kind === 'DEBT_COLLECTOR' ||
+      kind === 'BIRTHDAY' ||
+      kind === 'RENT' ||
+      kind === 'RATP_CHECK')
+  );
+}
+
 /**
  * Destinations possibles pour une carte en main. Le Refus catégorique et le
  * Double loyer ne se jouent jamais seuls : ils répondent ou accompagnent, donc
@@ -54,7 +77,12 @@ export function destinationsFor(cardId: CardId): Destination[] {
   if (canBank(cardId)) out.push('BANK');
   if (isPropertyLike(cardId)) out.push('PROPERTY');
   if (card.kind === 'RENT') out.push('ACTION');
-  if (card.kind === 'ACTION' && !isJustSayNo(cardId) && !isDoubleRent(cardId)) {
+  if (
+    card.kind === 'ACTION' &&
+    !isJustSayNo(cardId) &&
+    !isDoubleRent(cardId) &&
+    !isReflect(cardId)
+  ) {
     out.push('ACTION');
   }
   if (isBuilding(cardId)) {

@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { COLORS, MAX_ACTIONS_PER_TURN, rulesFor, type GameMode } from '@/lib/engine';
 import {
-  ACTION_TABLE,
+  actionTable,
   chaptersFor,
   rentTable,
   sizeLabel,
@@ -129,12 +129,12 @@ function RentTable({ rows }: { rows: RentRow[] }) {
   );
 }
 
-function ActionTable() {
+function ActionTable({ mode }: { mode: GameMode }) {
   return (
     <section id="regle-actions" className="scroll-mt-2">
       <Heading>Les cartes action</Heading>
       <ul className="flex flex-col gap-1.5">
-        {ACTION_TABLE.map((a) => (
+        {actionTable(mode).map((a) => (
           <li
             key={a.kind}
             className="flex items-baseline gap-2 rounded-card border-2 border-ink/15 bg-paper px-3 py-2"
@@ -189,7 +189,7 @@ export function RulesBook({ mode = 'CLASSIC' }: { mode?: GameMode }) {
       {chapitres.map((c) => (
         <Chapter key={c.id} chapter={c} />
       ))}
-      <ActionTable />
+      <ActionTable mode={mode} />
 
       <p className="text-[0.7rem] leading-snug text-ink-soft">
         En cas de désaccord, c’est le jeu qui tranche : une action refusée l’est

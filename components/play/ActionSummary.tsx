@@ -25,6 +25,9 @@ const KIND_LABEL: Record<PendingAction['kind'], string> = {
   DEBT_COLLECTOR: 'Recouvrement',
   BIRTHDAY: 'Anniversaire',
   RENT: 'Loyer',
+  FINE: 'Contravention',
+  RATP_CHECK: 'Contrôle RATP',
+  TAIL: 'Filature',
 };
 
 /**
