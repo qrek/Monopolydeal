@@ -196,6 +196,12 @@ export function TableView({ view }: { view: GameView }) {
 
   const colonne = viewport.portrait;
 
+  // Carte du coup joué, montrée au centre : aussi grande que l'écran le permet,
+  // bornée pour ne pas devenir une affiche sur un grand écran.
+  const cueWidth = Math.round(
+    Math.min(viewport.width * 0.42, (viewport.height * 0.58) / 1.4, 210),
+  );
+
   // Répartition de la LARGEUR de mon plateau. La banque prend ce qu'il lui faut
   // mais jamais plus de sa part ; mes lots héritent du reste et rétrécissent
   // pour tenir. Sans cela, huit billets poussaient mes propriétés dans un
@@ -263,7 +269,11 @@ export function TableView({ view }: { view: GameView }) {
 
         {/* Les cartes qui changent de mains, montrées en vol : sans ça, un vol
             ou un paiement n'était qu'une ligne de journal. */}
-        <TransferLayer events={state.events} width={scale.mine} />
+        <TransferLayer
+          events={state.events}
+          width={scale.mine}
+          viewerId={view.viewerId}
+        />
 
         {/* Bandeau ------------------------------------------------------- */}
         <header className="safe-px relative z-10 flex h-8 shrink-0 items-center gap-2 border-b-2 border-ink/80 bg-cream">
@@ -602,7 +612,7 @@ export function TableView({ view }: { view: GameView }) {
         nameOf={nameOf}
         colorOf={colorOf}
         winnerId={state.winnerId}
-        handWidth={scale.hand}
+        cueWidth={cueWidth}
       />
 
       <DragLayer ctl={ctl} width={scale.hand} />

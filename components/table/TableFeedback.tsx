@@ -69,7 +69,7 @@ export function TableFeedback({
   nameOf,
   colorOf,
   winnerId,
-  handWidth,
+  cueWidth,
 }: {
   events: GameEvent[];
   viewerId: string;
@@ -77,7 +77,8 @@ export function TableFeedback({
   /** Couleur du joueur, telle qu'elle s'affiche partout ailleurs. */
   colorOf: (id: string) => string;
   winnerId: string | null;
-  handWidth: number;
+  /** Largeur de la carte montrée au centre : la plus grande que l'écran tienne. */
+  cueWidth: number;
 }) {
   const reduced = useReducedMotion();
   const fresh = useFreshEvents(events);
@@ -130,7 +131,6 @@ export function TableFeedback({
           });
           break;
         case 'ACTION_PLAYED': {
-          if (e.kind === 'PASS_GO') break;
           const label = e.kind === 'RENT' ? 'Loyer' : ACTIONS[e.kind].label;
           setCue({
             id: ++seq.current,
@@ -203,34 +203,55 @@ export function TableFeedback({
       className="pointer-events-none fixed inset-0 overflow-hidden"
       style={{ zIndex: COUCHE.narration }}
     >
-      {/* Coup joué : la carte au centre, le temps de la voir. --------------- */}
+      {/* Coup joué : la carte au centre, en grand, le temps de la voir.
+          Elle était à la taille d'une carte en main, posée aux deux tiers de la
+          hauteur : on la manquait une fois sur deux, et c'est pourtant la seule
+          chose qui dit ce qu'un adversaire vient de faire. Elle occupe
+          maintenant le milieu du tapis, sur un fond assombri en dégradé — assez
+          pour la détacher, pas assez pour perdre la table de vue. */}
       <AnimatePresence>
         {cue && (
           <motion.div
             key={cue.id}
-            className="absolute left-1/2 top-[34%] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1.5"
-            initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
-            animate={{ opacity: 1, scale: 1, rotate: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -18 }}
+            className="absolute inset-0 grid place-items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={EASE_OUT}
           >
-            {cue.cardId && (
-              <div className="shadow-drag">
-                <CardFace cardId={cue.cardId} width={Math.round(handWidth * 0.92)} />
-              </div>
-            )}
             <div
-              className={`rounded-card border-2 border-ink px-2.5 py-1 text-center shadow-card ${
-                cue.tone === 'hostile' ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
-              }`}
+              aria-hidden
+              className="absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(closest-side at 50% 50%, rgba(20,20,20,0.12), rgba(20,20,20,0.55))',
+              }}
+            />
+            <motion.div
+              className="relative flex flex-col items-center gap-2"
+              initial={{ scale: 0.55, rotate: -10, y: 12 }}
+              animate={{ scale: 1, rotate: 0, y: 0 }}
+              exit={{ scale: 1.06, y: -14 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 24 }}
             >
-              <p className="text-xs font-extrabold uppercase leading-none tracking-tight">
-                {cue.title}
-              </p>
-              <p className="mt-0.5 text-[0.65rem] font-bold leading-none opacity-80">
-                {cue.subtitle}
-              </p>
-            </div>
+              {cue.cardId && (
+                <div className="shadow-drag">
+                  <CardFace cardId={cue.cardId} width={cueWidth} />
+                </div>
+              )}
+              <div
+                className={`rounded-card border-2 border-ink px-3 py-1.5 text-center shadow-card ${
+                  cue.tone === 'hostile' ? 'bg-mono-red text-cream' : 'bg-cream text-ink'
+                }`}
+              >
+                <p className="text-sm font-extrabold uppercase leading-none tracking-tight">
+                  {cue.title}
+                </p>
+                <p className="mt-1 text-xs font-bold leading-none opacity-80">
+                  {cue.subtitle}
+                </p>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
