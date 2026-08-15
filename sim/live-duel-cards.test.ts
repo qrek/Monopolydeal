@@ -194,6 +194,102 @@ async function tourSuivant(
   return solder(code, parId, apres);
 }
 
+/** Ouvre une partie de duel prête à jouer, et rend les deux joueurs. */
+async function ouvrirDuel(): Promise<{
+  code: string;
+  A: Joueur;
+  B: Joueur;
+  parId: Map<string, Joueur>;
+}> {
+  const A = await Joueur.create('Alice');
+  const B = await Joueur.create('Bob');
+  const parId = new Map([
+    [A.id, A],
+    [B.id, B],
+  ]);
+  const { code } = await A.call<{ code: string }>('/api/games', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'Alice', mode: 'DUEL' }),
+  });
+  await B.call(`/api/games/${code}/join`, {
+    method: 'POST',
+    body: JSON.stringify({ name: 'Bob' }),
+  });
+  await A.call(`/api/games/${code}/actions`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'START_GAME' }),
+  });
+  return { code, A, B, parId };
+}
+
+describe('la Contravention, contre le vrai serveur', () => {
+  it('retire vraiment une action au tour suivant', async () => {
+    const { code, parId } = await ouvrirDuel();
+    log(`Partie ${code}`);
+    let v = await [...parId.values()][0]!.view(code);
+
+    // On tourne jusqu'à ce qu'une Contravention arrive en main.
+    let inflige: string | null = null;
+    for (let tour = 0; tour < 40 && !inflige; tour++) {
+      v = await solder(code, parId, v);
+      if (v.state!.phase === 'GAME_OVER') break;
+      const courant = v.state!.players[v.state!.turnIndex]!;
+      const joueur = parId.get(courant.id)!;
+      v = await joueur.view(code);
+      const moi = v.state!.players.find((p) => p.id === courant.id)!;
+      const cible = v.state!.players.find((p) => p.id !== courant.id)!;
+      const carte = moi.hand.find((id) => {
+        const c = getCard(id);
+        return c.kind === 'ACTION' && c.action === 'FINE';
+      });
+      if (carte) {
+        v = (
+          await joueur.send(code, {
+            type: 'PLAY_FINE',
+            playerId: courant.id,
+            cardId: carte,
+            targetPlayerId: cible.id,
+          })
+        ).view;
+        v = await solder(code, parId, v);
+        inflige = cible.id;
+        log(`Contravention infligée à ${cible.id.slice(0, 8)}`);
+        break;
+      }
+      v = await tourSuivant(code, parId, v);
+    }
+    expect(inflige, 'aucune Contravention n’est arrivée en main').toBeTruthy();
+
+    // On passe la main au joueur puni, et on regarde ce que le serveur annonce.
+    v = await tourSuivant(code, parId, v);
+    v = await parId.get(inflige!)!.view(code);
+    const st = v.state!;
+    log(`Au trait : ${st.players[st.turnIndex]!.id.slice(0, 8)} · actionsAllowed = ${st.actionsAllowed} · jouées = ${st.actionsPlayed}`);
+    expect(st.players[st.turnIndex]!.id, 'ce n’est pas au puni de jouer').toBe(inflige);
+    expect(st.actionsAllowed, 'le serveur laisse encore trois actions').toBe(2);
+
+    // Et surtout : la troisième action doit être refusée pour de bon.
+    const puni = parId.get(inflige!)!;
+    let jouees = 0;
+    let refus = '';
+    for (let i = 0; i < 3; i++) {
+      const vue = await puni.view(code);
+      const moi = vue.state!.players.find((p) => p.id === inflige)!;
+      const carte = moi.hand.find((id) => getCard(id).kind === 'MONEY');
+      if (!carte) break;
+      try {
+        v = (await puni.send(code, { type: 'PLAY_MONEY', playerId: inflige!, cardId: carte })).view;
+        jouees++;
+      } catch (e) {
+        refus = String(e instanceof Error ? e.message : e);
+        break;
+      }
+    }
+    log(`Actions réellement jouées : ${jouees}${refus ? ` puis « ${refus.slice(-60)} »` : ''}`);
+    expect(jouees, 'le serveur a laissé jouer trois actions').toBeLessThanOrEqual(2);
+  }, 900_000);
+});
+
 describe('les quatre cartes, contre le vrai serveur', () => {
   it('se jouent toutes les quatre', async () => {
     const A = await Joueur.create('Alice');

@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CardFace } from '@/components/cards/CardFace';
 import { Wordmark } from '@/components/brand/Wordmark';
-import { ACTIONS, type CardId, type GameEvent } from '@/lib/engine';
+import { ACTIONS, MAX_ACTIONS_PER_TURN, type CardId, type GameEvent } from '@/lib/engine';
 import { inkOn } from '@/lib/ui/color';
 import { COUCHE } from '@/lib/ui/couches';
 import { vibrer } from '@/lib/ui/haptique';
@@ -70,6 +70,7 @@ export function TableFeedback({
   colorOf,
   winnerId,
   cueWidth,
+  actionsAllowed,
 }: {
   events: GameEvent[];
   viewerId: string;
@@ -79,6 +80,8 @@ export function TableFeedback({
   winnerId: string | null;
   /** Largeur de la carte montrée au centre : la plus grande que l'écran tienne. */
   cueWidth: number;
+  /** Actions permises au tour qui commence : moins de trois après une Contravention. */
+  actionsAllowed: number;
 }) {
   const reduced = useReducedMotion();
   const fresh = useFreshEvents(events);
@@ -88,6 +91,7 @@ export function TableFeedback({
     mine: boolean;
     name: string;
     color: string;
+    actions: number;
   } | null>(null);
   const [floats, setFloats] = useState<Float[]>([]);
   const seq = useRef(0);
@@ -100,6 +104,10 @@ export function TableFeedback({
   nameRef.current = nameOf;
   const colorRef = useRef(colorOf);
   colorRef.current = colorOf;
+  // Le bandeau se construit à l'événement, mais le budget du tour se lit dans
+  // l'état : on le prend par référence, comme les noms et les couleurs.
+  const actionsRef = useRef(actionsAllowed);
+  actionsRef.current = actionsAllowed;
 
   // Le retour haptique se branche sur les mêmes événements que le reste : ce
   // qui mérite une animation mérite une vibration, et rien d'autre.
@@ -128,6 +136,7 @@ export function TableFeedback({
             mine: e.playerId === viewerId,
             name: nameRef.current(e.playerId),
             color: colorRef.current(e.playerId),
+            actions: actionsRef.current,
           });
           break;
         case 'ACTION_PLAYED': {
@@ -277,6 +286,14 @@ export function TableFeedback({
               <p className="text-lg font-extrabold uppercase leading-none tracking-tight">
                 {turn.mine ? 'À toi de jouer' : `Tour de ${turn.name}`}
               </p>
+              {/* Une Contravention se voit au compteur, mais c'est ici qu'on
+                  comprend POURQUOI il n'y a que deux pastilles. */}
+              {turn.actions < MAX_ACTIONS_PER_TURN && (
+                <p className="mt-0.5 text-xs font-bold uppercase tracking-wide opacity-80">
+                  Contravention · {turn.actions} action
+                  {turn.actions > 1 ? 's' : ''} seulement
+                </p>
+              )}
             </div>
           </motion.div>
         )}

@@ -162,15 +162,25 @@ export function isBroke(player: PlayerState): boolean {
 }
 
 /**
+ * Le budget d'actions d'un tour, et rien d'autre : de quoi servir aussi bien
+ * l'état complet du moteur que la vue redacted du client, qui n'a pas de
+ * pioche. Sans ce type, l'interface recopiait le calcul — et se trompait.
+ */
+export interface TurnBudget {
+  actionsPlayed: number;
+  actionsAllowed?: number;
+}
+
+/**
  * Actions permises dans le tour courant. Une Contravention en retire ; les
  * parties commencées avant qu'elle existe n'ont pas le champ et retombent sur
  * le maximum.
  */
-export function actionsAllowed(state: GameState): number {
+export function actionsAllowed(state: TurnBudget): number {
   return state.actionsAllowed ?? MAX_ACTIONS_PER_TURN;
 }
 
-export function actionsRemaining(state: GameState): number {
+export function actionsRemaining(state: TurnBudget): number {
   return Math.max(0, actionsAllowed(state) - state.actionsPlayed);
 }
 
