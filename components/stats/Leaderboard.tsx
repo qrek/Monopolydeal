@@ -120,7 +120,7 @@ export function Leaderboard() {
               <div className="grid grid-cols-4 gap-2">
                 <Chiffre valeur={moi.parties} libelle="parties" />
                 <Chiffre valeur={moi.victoires} libelle="gagnées" />
-                <Chiffre valeur={`${moi.taux}%`} libelle="de vict." />
+                <Chiffre valeur={`${moi.taux}%`} libelle="au but" />
                 <Chiffre valeur={moi.serie} libelle="d’affilée" />
               </div>
               {moi.mode && (
