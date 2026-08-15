@@ -44,7 +44,8 @@ import { TransferLayer } from '@/components/table/TransferLayer';
 import { Button } from '@/components/ui/Button';
 import { useGameStore } from '@/lib/client/store';
 import {
-  MAX_ACTIONS_PER_TURN,
+  actionsAllowed,
+  actionsRemaining,
   bankTotal,
   completeColors,
   type GameEvent,
@@ -130,7 +131,11 @@ export function TableView({ view }: { view: GameView }) {
 
   const current = state?.players[state.turnIndex];
   const myTurn = current?.id === view.viewerId;
-  const left = state ? Math.max(0, MAX_ACTIONS_PER_TURN - state.actionsPlayed) : 0;
+  // Le plafond d'un tour n'est pas constant : une Contravention en retire une.
+  // Le recopier ici — `MAX_ACTIONS_PER_TURN - actionsPlayed` — donnait une
+  // interface qui promettait trois actions quand le serveur n'en acceptait que
+  // deux, et un refus incompréhensible au troisième coup.
+  const left = state ? actionsRemaining(state) : 0;
 
   const response = state ? myResponse(state, view.viewerId) : undefined;
   const debt = state ? myPendingTarget(state, view.viewerId) : undefined;
@@ -331,7 +336,11 @@ export function TableView({ view }: { view: GameView }) {
               </Button>
             ) : (
               <>
-                <ActionPips played={state.actionsPlayed} active={myTurn} />
+                <ActionPips
+                  played={state.actionsPlayed}
+                  allowed={actionsAllowed(state)}
+                  active={myTurn}
+                />
                 <AbortButton code={view.game.code} />
               </>
             )}
@@ -537,6 +546,7 @@ export function TableView({ view }: { view: GameView }) {
         colorOf={colorOf}
         winnerId={state.winnerId}
         cueWidth={cueWidth}
+        actionsAllowed={actionsAllowed(state)}
       />
 
       <DragLayer ctl={ctl} width={scale.hand} />
