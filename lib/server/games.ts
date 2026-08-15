@@ -15,6 +15,7 @@ import 'server-only';
 import { after } from 'next/server';
 
 import {
+  CLIENT_ACTIONS,
   JUST_SAY_NO_WINDOW_MS,
   MAX_ACTIONS_PER_TURN,
   RuleError,
@@ -322,32 +323,11 @@ export async function getGameView(
 // Application des intentions
 // ---------------------------------------------------------------------------
 
-/** Intentions qu'un client a le droit d'envoyer (le reste est serveur). */
-const CLIENT_ACTIONS: ReadonlySet<GameAction['type']> = new Set([
-  'DRAW',
-  'PLAY_MONEY',
-  'PLAY_PROPERTY',
-  'MOVE_WILD',
-  'PLAY_BUILDING',
-  'PLAY_PASS_GO',
-  'PLAY_DEAL_BREAKER',
-  'PLAY_SLY_DEAL',
-  'PLAY_FORCED_DEAL',
-  'PLAY_DEBT_COLLECTOR',
-  'PLAY_BIRTHDAY',
-  'PLAY_RENT',
-  'RESPOND_JUST_SAY_NO',
-  'RESPOND_ACCEPT',
-  'PAY',
-  'DISCARD',
-  'END_TURN',
-] as GameAction['type'][]);
-
 function assertClientAction(
   action: GameAction,
   userId: string,
 ): asserts action is GameAction {
-  if (!CLIENT_ACTIONS.has(action.type)) {
+  if (!CLIENT_ACTIONS[action.type]) {
     throw new ApiError(403, 'FORBIDDEN_ACTION', `${action.type} est réservé au serveur`);
   }
   // Toutes les intentions client portent un playerId : il doit être l'appelant.
