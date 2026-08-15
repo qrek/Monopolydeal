@@ -19,6 +19,8 @@ import {
   JUST_SAY_NO_WINDOW_MS,
   MAX_ACTIONS_PER_TURN,
   RuleError,
+  bankTotal,
+  completeColors,
   createGame,
   getAutoActions,
   redactFor,
@@ -437,7 +439,41 @@ async function persist(
   if (stateWrite.error) throw new ApiError(500, 'DB_ERROR', stateWrite.error.message);
   if (logWrite.error) throw new ApiError(500, 'DB_ERROR', logWrite.error.message);
 
+  // La partie vient de se terminer : on fige ce qu'elle a produit. C'est la
+  // seule occasion — l'état complet sera écrasé à la partie suivante, et le
+  // relire pour dresser un classement obligerait à ouvrir les données privées
+  // à chaque affichage.
+  if (statusOf(next) === 'finished' && game.status !== 'finished') {
+    await recordResults(game.id, next);
+  }
+
   notify(game.id, newVersion);
+}
+
+/**
+ * Une ligne par joueur, à la fin d'une partie.
+ *
+ * Le classement s'indexe sur le PSEUDO et non sur le compte : l'identité
+ * technique meurt avec le cookie du navigateur, le pseudo se retape à
+ * l'identique ailleurs. La clé de rapprochement est calculée en base — colonne
+ * générée — pour qu'il n'existe qu'une seule définition de « c'est le même
+ * joueur ».
+ */
+async function recordResults(gameId: string, state: GameState): Promise<void> {
+  const rows = state.players.map((p) => ({
+    game_id: gameId,
+    user_id: p.id,
+    pseudo: p.name,
+    mode: state.mode,
+    won: state.winnerId === p.id,
+    sets: completeColors(p).length,
+    bank: bankTotal(p),
+    turns: state.events.filter((e) => e.t === 'TURN_STARTED').length,
+  }));
+  // Un échec ici ne doit pas faire perdre le coup gagnant au joueur : la
+  // partie est jouée, le classement n'est qu'un décompte.
+  const { error } = await adminClient().from('game_results').insert(rows);
+  if (error) console.error('game_results', error.message);
 }
 
 function toApiError(e: unknown): never {
