@@ -2,6 +2,7 @@
 
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
@@ -165,11 +166,24 @@ export function HomeScreen() {
         </p>
       )}
 
-      <RulesButton
-        className="mx-auto text-sm font-extrabold uppercase tracking-widest text-ink-soft underline decoration-ink/30 underline-offset-4 transition-colors hover:text-ink"
-        label="Règles du jeu"
-        mode={mode}
-      />
+      <div className="flex items-center justify-center gap-4">
+        <RulesButton
+          className="text-sm font-extrabold uppercase tracking-widest text-ink-soft underline decoration-ink/30 underline-offset-4 transition-colors hover:text-ink"
+          label="Règles du jeu"
+          mode={mode}
+        />
+        <span aria-hidden className="text-ink/25">
+          ·
+        </span>
+        {/* Les statistiques suivent le pseudo : la page se consulte sans avoir
+            à créer de compte, et sans quitter l'accueil bien longtemps. */}
+        <Link
+          href="/classement"
+          className="text-sm font-extrabold uppercase tracking-widest text-ink-soft underline decoration-ink/30 underline-offset-4 transition-colors hover:text-ink"
+        >
+          Classement
+        </Link>
+      </div>
     </main>
   );
 }
