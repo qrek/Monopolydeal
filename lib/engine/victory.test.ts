@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALLOWED_ACTIONS, isLegalTransition } from './machine.ts';
+import { ALLOWED_ACTIONS, CLIENT_ACTIONS, isLegalTransition } from './machine.ts';
 import { createGame, reduce, reduceAll, replay } from './reduce.ts';
 import {
   completeColors,
@@ -23,7 +23,7 @@ import {
   wild,
   wildAny,
 } from './test-utils.ts';
-import type { GameAction, GameState } from './types.ts';
+import type { GameAction, GameActionType, GameState } from './types.ts';
 
 describe('Condition de victoire', () => {
   it('déclare vainqueur à 3 lots complets de 3 couleurs différentes', () => {
@@ -250,5 +250,23 @@ describe('Machine à états', () => {
     expect(ALLOWED_ACTIONS.RESOLVING_ACTION).toContain('RESPOND_JUST_SAY_NO');
     expect(ALLOWED_ACTIONS.DISCARD).toContain('DISCARD');
     expect(ALLOWED_ACTIONS.GAME_OVER).not.toContain('PLAY_MONEY');
+  });
+
+  it('ouvre au client tout ce qu’un joueur peut jouer', () => {
+    // Le bug qui a motivé ce test : quatre intentions ajoutées au moteur, la
+    // machine les acceptait, l'interface les proposait, et la liste blanche du
+    // serveur — tenue à la main — les refusait toutes les quatre. Toute
+    // intention qu'une phase de JEU accepte doit être émettable par un client,
+    // à l'exception des trois que le serveur déclenche lui-même.
+    const SERVEUR: GameActionType[] = ['START_GAME', 'ADVANCE_TURN', 'SET_CONNECTED'];
+    const jouables = new Set<GameActionType>();
+    for (const phase of ['DRAW', 'PLAY', 'RESOLVING_ACTION', 'AWAITING_PAYMENT', 'DISCARD'] as const) {
+      for (const a of ALLOWED_ACTIONS[phase]) jouables.add(a);
+    }
+    for (const a of jouables) {
+      if (SERVEUR.includes(a)) continue;
+      expect(CLIENT_ACTIONS[a], a).toBe(true);
+    }
+    for (const a of SERVEUR) expect(CLIENT_ACTIONS[a], a).toBe(false);
   });
 });
